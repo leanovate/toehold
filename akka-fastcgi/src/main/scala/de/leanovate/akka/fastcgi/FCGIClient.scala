@@ -4,7 +4,7 @@ import akka.actor.{ActorLogging, ActorRef, Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
-import de.leanovate.akka.fastcgi.records.FCGIRecord
+import de.leanovate.akka.fastcgi.records.{BytesToFCGIRecords, FCGIRecord}
 import FCGIClient._
 import de.leanovate.akka.fastcgi.iteratee.{InStreamEnumerator, OutStreamAdapter}
 
@@ -24,10 +24,11 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck)
       val in = new InStreamEnumerator(sender)
       context become connected(sender, in, out)
-      handler.connected(in, out.iterator)
+      handler.connected(in &> BytesToFCGIRecords.enumeratee, out.iterator)
   }
 
-  def connected(connection: ActorRef, in: InStreamEnumerator, out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
+  def connected(connection: ActorRef, in: InStreamEnumerator,
+    out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
 
     case Received(data) =>
       in.feedChunk(data)
@@ -35,6 +36,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       out.acknowledge()
     case _: ConnectionClosed =>
       in.feedEOF()
+      println(">>> Close")
       context stop self
   }
 }
@@ -47,4 +49,5 @@ object FCGIClient {
     Props(classOf[FCGIClient], remote, handler)
 
   case object SendRecordAck extends Event
+
 }

@@ -5,7 +5,7 @@ import akka.util.ByteString
 import de.leanovate.akka.fastcgi.iteratee.RawWriter
 
 trait FCGIRecord {
-  def id: Short
+  def id: Int
 
   def typeId: Byte
 
@@ -25,4 +25,29 @@ object FCGIRecord extends RawWriter[FCGIRecord] {
   val FCGI_VERSION = 1.toByte
 
   override def write(a: FCGIRecord) = a.payload
+
+  def extract(data: ByteString): Option[(FCGIRecord, ByteString)] = {
+
+    if (data.length < 8) {
+      None
+    } else {
+      val len = ((data(4).toInt & 0xff) << 8) | (data(5).toInt & 0xff)
+      if (data.length < len + 8) {
+        None
+      } else {
+        val id = ((data(2).toInt & 0xff) << 8) | (data(3).toInt & 0xff)
+
+        data(1) match {
+          case FCGIConstants.FCGI_END_REQUEST =>
+            Some(FCGIEndRequest(id), data.drop(len + 8))
+          case FCGIConstants.FCGI_STDIN =>
+            Some(FCGIStdin(id, data.drop(8).take(len)), data.drop(len + 8))
+          case FCGIConstants.FCGI_STDOUT =>
+            Some(FCGIStdOut(id, data.drop(8).take(len)), data.drop(len + 8))
+          case FCGIConstants.FCGI_STDERR =>
+            Some(FCGIStdErr(id, data.drop(8).take(len)), data.drop(len + 8))
+        }
+      }
+    }
+  }
 }

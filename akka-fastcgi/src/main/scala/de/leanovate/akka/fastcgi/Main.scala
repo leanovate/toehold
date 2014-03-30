@@ -20,13 +20,16 @@ object Main {
         println(">>> Connection failed")
       }
 
-      override def connected(in: Enumerator[ByteString], out: Iteratee[FCGIRecord, Unit]) = {
+      override def connected(in: Enumerator[FCGIRecord], out: Iteratee[FCGIRecord, Unit]) = {
 
         println(">>> Connected")
 
-        in |>> Iteratee.foreach[ByteString] {
-          chunk =>
-            println(chunk.utf8String)
+        in |>> Iteratee.foreach[FCGIRecord] {
+          record =>
+            println(record)
+        }.map {
+          _=>
+          println("EOF")
         }
         val env = Seq(
                        "SCRIPT_FILENAME" -> "/vagrant/test.php",
@@ -41,9 +44,9 @@ object Main {
                      ).map(e => ByteString(e._1) -> ByteString(e._2))
         Enumerator[FCGIRecord](
                                 FCGIBeginRequest(1, FCGIRoles.FCGI_RESPONDER, keepAlive = false),
-                                FCGIParams(2, env),
-                                FCGIParams(3, Seq.empty),
-                                FCGIStdin(4, ByteString())
+                                FCGIParams(1, env),
+                                FCGIParams(1, Seq.empty),
+                                FCGIStdin(1, ByteString())
                               ) |>> out
       }
     }
