@@ -32,12 +32,12 @@ object Main {
           println("EOF")
         }
         val env = Seq(
-                       "SCRIPT_FILENAME" -> "/vagrant/test.php",
+                       "SCRIPT_FILENAME" -> "/vagrant/simple.php",
                        "QUERY_STRING" -> "",
                        "REQUEST_METHOD" -> "GET",
-                       "SCRIPT_NAME" -> "/test.php",
-                       "REQUEST_URI" -> "/test.php",
-                       "DOCUMENT_URI" -> "/test.php",
+                       "SCRIPT_NAME" -> "/simple.php",
+                       "REQUEST_URI" -> "/simple.php",
+                       "DOCUMENT_URI" -> "/simple.php",
                        "DOCUMENT_ROOT" -> "/vagrant",
                        "SERVER_PROTOCOL" -> "HTTP/1.1",
                        "GATEWAY_INTERFACE" -> "CGI/1.1"

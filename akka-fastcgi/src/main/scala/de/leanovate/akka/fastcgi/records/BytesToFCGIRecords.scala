@@ -11,22 +11,24 @@ class BytesToFCGIRecords extends (Input[ByteString] => Enumerator[FCGIRecord]) {
     case Input.El(chunk) =>
       buffer ++= chunk
       val records = Seq.newBuilder[FCGIRecord]
-      var extracted = FCGIRecord.extract(buffer)
-      while (extracted.isDefined) {
-        records += extracted.get._1
-        buffer = extracted.get._2
-        extracted = FCGIRecord.extract(buffer)
+      var extracted = FCGIRecord.decode(buffer)
+      buffer = extracted._2
+      while (extracted._1.isDefined) {
+        records += extracted._1.get
+        extracted = FCGIRecord.decode(buffer)
+        buffer = extracted._2
       }
       Enumerator(records.result(): _*)
     case Input.EOF if buffer.isEmpty =>
       Enumerator.eof
     case Input.EOF =>
       val records = Seq.newBuilder[FCGIRecord]
-      var extracted = FCGIRecord.extract(buffer)
-      while (extracted.isDefined) {
-        records += extracted.get._1
-        buffer = extracted.get._2
-        extracted = FCGIRecord.extract(buffer)
+      var extracted = FCGIRecord.decode(buffer)
+      buffer = extracted._2
+      while (extracted._1.isDefined) {
+        records += extracted._1.get
+        extracted = FCGIRecord.decode(buffer)
+        buffer = extracted._2
       }
       Enumerator(records.result(): _*) >>> Enumerator.eof
     case Input.Empty =>
@@ -35,6 +37,5 @@ class BytesToFCGIRecords extends (Input[ByteString] => Enumerator[FCGIRecord]) {
 }
 
 object BytesToFCGIRecords {
-
   def enumeratee(implicit ctx: ExecutionContext) = Enumeratee.mapInputFlatten(new BytesToFCGIRecords)
 }

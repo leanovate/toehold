@@ -1,4 +1,4 @@
-package de.leanovate.akka.fastcgi.iteratee
+package de.leanovate.akka.iteratee.tcp
 
 import akka.actor.ActorRef
 import scala.concurrent.Promise

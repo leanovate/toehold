@@ -11,6 +11,7 @@
 
     <modules>
         <module>akka-fastcgi</module>
+        <module>akka-iteratee</module>
     </modules>
 
     <properties>
@@ -21,9 +22,17 @@
         <repository>
             <id>typesafe</id>
             <name>typesafe-releases</name>
-            <url>http://repo.typesafe.com/typesafe/release</url>
+            <url>http://repo.typesafe.com/typesafe/releases</url>
         </repository>
     </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>sonatype</id>
+            <name>sonatype</name>
+            <url>https://oss.sonatype.org/content/groups/public</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <dependencyManagement>
         <dependencies>
@@ -31,6 +40,20 @@
                 <groupId>org.scala-lang</groupId>
                 <artifactId>scala-library</artifactId>
                 <version>${scala.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest_2.10</artifactId>
+                <version>2.1.0</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>1.7</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -42,7 +65,7 @@
             <dependency>
                 <groupId>com.typesafe.play</groupId>
                 <artifactId>play-iteratees_2.10</artifactId>
-                <version>2.2.1</version>
+                <version>2.2.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -69,6 +92,16 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>2.14</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest-maven-plugin</artifactId>
+                    <version>1.0-RC2</version>
+                    <configuration>
+                        <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+                        <junitxml>.</junitxml>
+                        <filereports>WDF TestSuite.txt</filereports>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

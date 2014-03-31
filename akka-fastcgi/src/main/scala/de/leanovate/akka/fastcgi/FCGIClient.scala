@@ -6,7 +6,7 @@ import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.{BytesToFCGIRecords, FCGIRecord}
 import FCGIClient._
-import de.leanovate.akka.fastcgi.iteratee.{InStreamEnumerator, OutStreamAdapter}
+import de.leanovate.akka.iteratee.tcp.{InStreamEnumerator, OutStreamAdapter}
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
 
