@@ -9,3 +9,7 @@ libraryDependencies ++= Seq(
 )     
 
 play.Project.playScalaSettings
+
+filterSettings
+
+PhpFpmCommands.settings

@@ -37,7 +37,7 @@ object Main {
           _ =>
             println("EOF")
         }
-        val request = FCGIResponderRequest("GET", "/simple.php", "", "/vagrant",
+        val request = FCGIResponderRequest("GET", "/test.php", "", "./app-php",
                                             Map.empty,
                                             Enumerator.eof)
 
@@ -45,7 +45,7 @@ object Main {
       }
     }
 
-    val server = system.actorOf(FCGIClient.props("localhost", 9111, handler))
+    val server = system.actorOf(FCGIClient.props("localhost", 9110, handler))
 
     Thread.sleep(5000L)
   }
