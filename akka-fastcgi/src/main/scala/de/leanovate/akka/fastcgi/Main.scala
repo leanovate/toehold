@@ -6,6 +6,8 @@ import de.leanovate.akka.fastcgi.records._
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.records.FCGIParams
 import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
+import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
+import java.net.URI
 
 object Main {
   def main(args: Array[String]) {
@@ -25,29 +27,21 @@ object Main {
         println(">>> Connected")
 
         in |>> Iteratee.foreach[FCGIRecord] {
-          record =>
+          case FCGIStdErr(_, content) =>
+            println("Err: " + content.utf8String)
+          case FCGIStdOut(_, content) =>
+            println("Out: " + content.utf8String)
+          case record =>
             println(record)
         }.map {
-          _=>
-          println("EOF")
+          _ =>
+            println("EOF")
         }
-        val env = Seq(
-                       "SCRIPT_FILENAME" -> "/vagrant/simple.php",
-                       "QUERY_STRING" -> "",
-                       "REQUEST_METHOD" -> "GET",
-                       "SCRIPT_NAME" -> "/simple.php",
-                       "REQUEST_URI" -> "/simple.php",
-                       "DOCUMENT_URI" -> "/simple.php",
-                       "DOCUMENT_ROOT" -> "/vagrant",
-                       "SERVER_PROTOCOL" -> "HTTP/1.1",
-                       "GATEWAY_INTERFACE" -> "CGI/1.1"
-                     ).map(e => ByteString(e._1) -> ByteString(e._2))
-        Enumerator[FCGIRecord](
-                                FCGIBeginRequest(1, FCGIRoles.FCGI_RESPONDER, keepAlive = false),
-                                FCGIParams(1, env),
-                                FCGIParams(1, Seq.empty),
-                                FCGIStdin(1, ByteString())
-                              ) |>> out
+        val request = FCGIResponderRequest("GET", "/simple.php", "", "/vagrant",
+                                            Map.empty,
+                                            Enumerator.eof)
+
+        request.records(1) |>> out
       }
     }
 

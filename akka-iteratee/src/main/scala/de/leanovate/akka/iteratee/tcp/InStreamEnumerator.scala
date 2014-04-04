@@ -7,7 +7,8 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import akka.io.Tcp
 import akka.actor.ActorRef
 
-class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx:ExecutionContext) extends Enumerator[ByteString] {
+class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
+  extends Enumerator[ByteString] {
   private val initialIteratee = Promise[Iteratee[ByteString, _]]()
 
   private val resultIteratee = Promise[Iteratee[ByteString, _]]()
@@ -26,6 +27,12 @@ class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx:Ex
   def feedEOF() {
 
     resultIteratee.completeWith(feed(Input.EOF, 0))
+  }
+
+  def feedError(msg: String) {
+
+    feed(Input.EOF, 0)
+    resultIteratee.failure(new RuntimeException(msg))
   }
 
   private def feed(input: Input[ByteString], size: Int): Future[Iteratee[ByteString, _]] = {

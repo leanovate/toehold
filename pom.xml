@@ -12,6 +12,7 @@
     <modules>
         <module>akka-fastcgi</module>
         <module>akka-iteratee</module>
+        <module>play-fastcgi</module>
     </modules>
 
     <properties>
@@ -60,6 +61,12 @@
                 <groupId>com.typesafe.akka</groupId>
                 <artifactId>akka-actor_2.10</artifactId>
                 <version>2.2.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.typesafe.play</groupId>
+                <artifactId>play_2.10</artifactId>
+                <version>2.2.2</version>
             </dependency>
 
             <dependency>
