@@ -42,11 +42,11 @@ object FCGIRecord extends RawWriter[FCGIRecord] {
           case FCGIConstants.FCGI_END_REQUEST =>
             (Some(FCGIEndRequest(id)), data.drop(len + 8))
           case FCGIConstants.FCGI_STDIN =>
-            (Some(FCGIStdin(id, data.drop(8).take(len))), data.drop(len + 8))
+            (Some(FCGIStdin(id, data.drop(8).take(len))), data.drop(len + 8).dropWhile(_ == 0))
           case FCGIConstants.FCGI_STDOUT =>
-            (Some(FCGIStdOut(id, data.drop(8).take(len))), data.drop(len + 8))
+            (Some(FCGIStdOut(id, data.drop(8).take(len))), data.drop(len + 8).dropWhile(_ == 0))
           case FCGIConstants.FCGI_STDERR =>
-            (Some(FCGIStdErr(id, data.drop(8).take(len))), data.drop(len + 8))
+            (Some(FCGIStdErr(id, data.drop(8).take(len))), data.drop(len + 8).dropWhile(_ == 0))
         }
       }
     }

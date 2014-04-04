@@ -1,6 +1,7 @@
 import sbt._
 import sbt.Keys._
 import play.PlayRunHook
+import play.Project._
 import scala.languageFeature.postfixOps
 import sbtfilter.Plugin.Filter
 
@@ -24,6 +25,9 @@ object PhpFpmCommands {
     },
     commands <++= baseDirectory {
       base => Seq(startPhpFpmCommand(base), stopPhpFpmProcess(base))
+    },
+    playRunHooks <+= (state, streams, baseDirectory, phpFpmConfig).map {
+      (state, stream, base, config) => phpFpmRunHook(state, stream.log, base, config)
     }
   )
 
@@ -61,5 +65,22 @@ object PhpFpmCommands {
           java.lang.Runtime.getRuntime.removeShutdownHook(terminator)
           state.remove(phpFpmProcess)
       }.getOrElse(state)
+  }
+
+  def phpFpmRunHook(state: State, log: Logger, base: File, config: File) = new PlayRunHook {
+
+    var process: Option[Process] = None
+
+    override def beforeStarted() = {
+      state.get(phpFpmProcess).getOrElse {
+        process = Some(createPhpFpmProcess(state.log, base, config).run())
+      }
+    }
+
+    override def afterStopped(): Unit = {
+      process.map(p => p.destroy())
+      process = None
+    }
+
   }
 }
