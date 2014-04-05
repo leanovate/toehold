@@ -3,7 +3,7 @@ package de.leanovate.akka.fastcgi
 import akka.actor.ActorSystem
 import play.api.libs.iteratee.{Enumerator, Iteratee}
 import de.leanovate.akka.fastcgi.records._
-import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIResponderRequest}
+import de.leanovate.akka.fastcgi.request.{FCGIRequestContent, FCGIResponderSuccess, FCGIResponderError, FCGIResponderRequest}
 import akka.util.{ByteString, Timeout}
 import scala.concurrent.duration._
 import akka.pattern.ask
@@ -38,8 +38,7 @@ object Main {
             println("EOF")
         }
         val request = FCGIResponderRequest("GET", "/test.php", "", "./app-php",
-                                            Map.empty,
-                                            Enumerator.eof)
+                                            Map.empty, None)
 
         request.records(1) |>> out
       }
@@ -47,10 +46,10 @@ object Main {
 
     //    val server = system.actorOf(FCGIClient.props("localhost", 9110, handler))
 
-    val requester = system.actorOf(FCGIRequestActor.props("localhost", 9110))
-    val request = FCGIResponderRequest("POST", "/test.php", "", "./app-php",
-                                        Map.empty,
-                                        Enumerator(ByteString("Hubba\n")))
+    val requester = system.actorOf(FCGIRequestActor.props("localhost", 9111))
+    val request = FCGIResponderRequest("POST", "/test.php", "", "/vagrant",
+                                        Seq("Content-Type" -> Seq("text/plain")).toMap,
+                                        Some(FCGIRequestContent("text/plain", "Tri tra tulla Hubba\n")))
 
     (requester ? request).foreach {
       case FCGIResponderSuccess(headers, content) =>

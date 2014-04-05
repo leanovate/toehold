@@ -1,4 +1,5 @@
 <?php
+ var_dump($HTTP_RAW_POST_DATA);
  $input = file_get_contents('php://input');
  print("Our input was\n");
  print($input);

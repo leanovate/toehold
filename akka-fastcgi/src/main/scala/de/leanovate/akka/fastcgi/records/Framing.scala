@@ -8,12 +8,10 @@ object Framing {
   def toFCGIStdin(id: Int)(implicit ctx: ExecutionContext): Enumeratee[ByteString, FCGIRecord] =
     Enumeratee.mapInput[ByteString] {
       case Input.El(content) =>
-        println("I1")
         Input.El(FCGIStdin(id, content))
       case Input.Empty =>
         Input.Empty
       case Input.EOF =>
-        println("I2")
         Input.El(FCGIStdin(id, ByteString()))
     }
 
