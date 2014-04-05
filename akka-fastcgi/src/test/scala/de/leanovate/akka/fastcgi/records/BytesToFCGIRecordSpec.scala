@@ -7,7 +7,6 @@ import play.api.libs.iteratee.{Iteratee, Enumerator}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import de.leanovate.akka.fastcgi.records.FCGIStdin
 import scala.util.Random
 
 class BytesToFCGIRecordSpec extends FunSpec with Matchers {
@@ -34,7 +33,7 @@ class BytesToFCGIRecordSpec extends FunSpec with Matchers {
     }
 
     it("should be able to convert a FCGI stream to a sequence of FCGIRecords") {
-      val collected = Enumerator[ByteString](responseData) &> BytesToFCGIRecords.enumeratee |>>> Iteratee.getChunks
+      val collected = Enumerator[ByteString](responseData) &> Framing.bytesToRecords |>>> Iteratee.getChunks
 
       val result = Await.result(collected, 5.seconds)
 
@@ -51,7 +50,7 @@ class BytesToFCGIRecordSpec extends FunSpec with Matchers {
         idx = end
       }
 
-      val collected = Enumerator[ByteString](chunks.result(): _*) &> BytesToFCGIRecords.enumeratee |>>> Iteratee.getChunks
+      val collected = Enumerator[ByteString](chunks.result(): _*) &> Framing.bytesToRecords |>>> Iteratee.getChunks
 
       val result = Await.result(collected, 5.seconds)
 

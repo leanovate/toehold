@@ -4,7 +4,7 @@ import akka.actor.{ActorLogging, ActorRef, Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
-import de.leanovate.akka.fastcgi.records.{BytesToFCGIRecords, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.{Framing, FCGIRecord}
 import FCGIClient._
 import de.leanovate.akka.iteratee.tcp.{InStreamEnumerator, OutStreamAdapter}
 
@@ -18,13 +18,19 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
   def receive = {
 
     case c@CommandFailed(_: Connect) =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Connect failed: $c")
+      }
       handler.connectionFailed()
     case c@Connected(remote, local) =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Connected $remote -> $local")
+      }
       sender ! Register(self)
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck)
       val in = new InStreamEnumerator(sender)
       context become connected(sender, in, out)
-      handler.connected(in &> BytesToFCGIRecords.enumeratee, out.iterator)
+      handler.connected(in &> Framing.bytesToRecords, out.iterator)
   }
 
   def connected(connection: ActorRef, in: InStreamEnumerator,

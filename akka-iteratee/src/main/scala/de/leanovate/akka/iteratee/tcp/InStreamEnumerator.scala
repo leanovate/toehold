@@ -53,7 +53,6 @@ class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: E
             }
             k(input)
           case Step.Done(result, remain) =>
-            connection ! Tcp.Close
             Done(result, remain)
 
           case Step.Error(msg, remain) =>

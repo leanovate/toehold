@@ -35,7 +35,3 @@ class BytesToFCGIRecords extends (Input[ByteString] => Enumerator[FCGIRecord]) {
       Enumerator.empty
   }
 }
-
-object BytesToFCGIRecords {
-  def enumeratee(implicit ctx: ExecutionContext) = Enumeratee.mapInputFlatten(new BytesToFCGIRecords)
-}

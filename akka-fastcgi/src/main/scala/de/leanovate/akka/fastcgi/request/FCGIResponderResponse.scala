@@ -3,6 +3,9 @@ package de.leanovate.akka.fastcgi.request
 import akka.util.ByteString
 import play.api.libs.iteratee.Enumerator
 
-case class FCGIResponderResponse(headers:Seq[(String, String)], content: Enumerator[ByteString]) {
+sealed trait FCGIResponderResponse
 
-}
+case class FCGIResponderSuccess(headers: Seq[(String, String)], content: Enumerator[ByteString])
+  extends FCGIResponderResponse
+
+case class FCGIResponderError(msg: String) extends FCGIResponderResponse

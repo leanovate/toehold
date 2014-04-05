@@ -19,3 +19,8 @@ case class FCGIBeginRequest(id: Int, role: FCGIRoles.Type, keepAlive: Boolean) e
                                      0.toByte
                                    )
 }
+
+object FCGIBeginRequest {
+  def read(id: Int, content: ByteString) =
+    FCGIBeginRequest(id, FCGIRoles(((content(0).toInt & 0xff) << 8) | (content(0).toInt & 0xff)), content(3) != 0)
+}

@@ -32,6 +32,6 @@ case class FCGIResponderRequest(method: String, path: String, query: String,
       ).map(e => ByteString(e._1) -> ByteString(e._2)))
 
     Enumerator[FCGIRecord](beginRquest, params, FCGIParams(id, Seq.empty))
-      .andThen(content &> Framing.toFCGIStdin(id))
+      .andThen(content &> Framing.toFCGIStdin(id)).andThen(Enumerator(FCGIStdin(id, ByteString.empty)))
   }
 }

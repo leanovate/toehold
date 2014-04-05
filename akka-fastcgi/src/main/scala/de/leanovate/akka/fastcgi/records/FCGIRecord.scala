@@ -36,16 +36,20 @@ object FCGIRecord extends RawWriter[FCGIRecord] {
         (None, data)
       } else {
         val id = ((data(2).toInt & 0xff) << 8) | (data(3).toInt & 0xff)
+        val content = data.drop(8).take(len)
+        val remain = data.drop(len + pad + 8)
 
         data(1) match {
+          case FCGIConstants.FCGI_BEGIN_REQUEST =>
+            (Some(FCGIBeginRequest.read(id, content)), remain)
           case FCGIConstants.FCGI_END_REQUEST =>
-            (Some(FCGIEndRequest(id)), data.drop(len + pad + 8))
+            (Some(FCGIEndRequest(id)), remain)
           case FCGIConstants.FCGI_STDIN =>
-            (Some(FCGIStdin(id, data.drop(8).take(len))), data.drop(len + pad +8))
+            (Some(FCGIStdin(id, content)), remain)
           case FCGIConstants.FCGI_STDOUT =>
-            (Some(FCGIStdOut(id, data.drop(8).take(len))), data.drop(len + pad +8))
+            (Some(FCGIStdOut(id, content)), remain)
           case FCGIConstants.FCGI_STDERR =>
-            (Some(FCGIStdErr(id, data.drop(8).take(len))), data.drop(len + pad +8))
+            (Some(FCGIStdErr(id, content)), remain)
         }
       }
     }
