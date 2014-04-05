@@ -20,18 +20,6 @@ class FCGIRecordSpec extends FunSpec with Matchers {
                                                                 |Content-type: text/html
                                                                 |
                                                                 |Hello World""".stripMargin)
-          Hex.encodeHexString(remain.toArray) should be("0001030001000800000000000000696162")
-        case noMatch =>
-          fail("$noMatch is unexpected")
-      }
-    }
-
-    it("should ignore single 0 bytes in remaining data") {
-      val responseData = ByteString(Hex.decodeHex("0001030001000800000000000000696162".toCharArray))
-
-      FCGIRecord.decode(responseData) match {
-        case (None, remain) =>
-
           Hex.encodeHexString(remain.toArray) should be("01030001000800000000000000696162")
         case noMatch =>
           fail("$noMatch is unexpected")
@@ -43,7 +31,7 @@ class FCGIRecordSpec extends FunSpec with Matchers {
 
       FCGIRecord.decode(responseData) match {
         case (Some(FCGIEndRequest(id)), remain) =>
-          id should be(1)
+          id should be (1)
           remain.isEmpty should be(true)
         case noMatch =>
           fail("$noMatch is unexpected")

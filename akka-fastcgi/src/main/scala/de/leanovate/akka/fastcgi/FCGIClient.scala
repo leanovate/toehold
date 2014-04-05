@@ -31,7 +31,6 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
     out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
 
     case Received(data) =>
-      println("Chuunk: " + data)
       in.feedChunk(data)
     case SendRecordAck =>
       out.acknowledge()
