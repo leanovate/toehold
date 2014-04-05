@@ -37,12 +37,9 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
 
       override def connected(in: Enumerator[FCGIRecord], out: Iteratee[FCGIRecord, Unit]) = {
 
-        val promiseOut = new PromiseEnumerator[ByteString]
-        in |>> Framing.filterStdOut(stderrToLog) &> promiseOut.promisedIteratee
+        target ! FCGIResponderSuccess(Seq.empty, in &> Framing.filterStdOut(stderrToLog))
 
         request.records(1) |>> out
-
-        target ! FCGIResponderSuccess(Seq(), promiseOut)
       }
     }
 

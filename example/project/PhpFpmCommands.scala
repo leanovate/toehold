@@ -40,7 +40,7 @@ object PhpFpmCommands {
     (state, args) =>
       state.get(phpFpmProcess).map {
         _ =>
-          state.log.info("Alreaded started")
+          state.log.info("Already started")
           state
       }.getOrElse {
         val project = Project.extract(state)
@@ -69,17 +69,28 @@ object PhpFpmCommands {
 
   def phpFpmRunHook(state: State, log: Logger, base: File, config: File) = new PlayRunHook {
 
-    var process: Option[Process] = None
+    var processAndTerminator: Option[(Process, Thread)] = None
 
     override def beforeStarted() = {
       state.get(phpFpmProcess).getOrElse {
-        process = Some(createPhpFpmProcess(state.log, base, config).run())
+        val process = createPhpFpmProcess(state.log, base, config).run()
+        val terminator = new Thread {
+          override def run() {
+            process.destroy()
+          }
+        }
+        java.lang.Runtime.getRuntime.addShutdownHook(terminator)
+        processAndTerminator = Some(process, terminator)
       }
     }
 
     override def afterStopped(): Unit = {
-      process.map(p => p.destroy())
-      process = None
+      processAndTerminator.map {
+        case (process, terminator) =>
+          process.destroy()
+          java.lang.Runtime.getRuntime.removeShutdownHook(terminator)
+      }
+      processAndTerminator = None
     }
 
   }

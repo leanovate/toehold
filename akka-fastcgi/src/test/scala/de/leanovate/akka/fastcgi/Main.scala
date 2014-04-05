@@ -46,13 +46,14 @@ object Main {
 
     //    val server = system.actorOf(FCGIClient.props("localhost", 9110, handler))
 
-    val requester = system.actorOf(FCGIRequestActor.props("localhost", 9111))
-    val request = FCGIResponderRequest("POST", "/test.php", "", "/vagrant",
+    val requester = system.actorOf(FCGIRequestActor.props("localhost", 9110))
+    val request = FCGIResponderRequest("POST", "/test.php", "", "./app-php",
                                         Seq("Content-Type" -> Seq("text/plain")).toMap,
                                         Some(FCGIRequestContent("text/plain", "Tri tra tulla Hubba\n")))
 
     (requester ? request).foreach {
       case FCGIResponderSuccess(headers, content) =>
+        println(headers)
         content |>> Iteratee.foreach[ByteString] {
           chunk =>
             println("Chunk: " + chunk.utf8String)

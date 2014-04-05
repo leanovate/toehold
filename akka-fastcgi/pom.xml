@@ -43,7 +43,7 @@
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <scope>compile</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

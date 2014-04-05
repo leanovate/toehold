@@ -30,8 +30,8 @@ object Framing {
   def headerLinesFromStdOut(implicit ctx: ExecutionContext) = {
 
     var buffer = ByteString.empty
-    val lines = Seq.newBuilder[ByteString]
-    def step(i: Input[ByteString]): Iteratee[ByteString, Seq[ByteString]] = i match {
+    val lines = Seq.newBuilder[(String, String)]
+    def step(i: Input[ByteString]): Iteratee[ByteString, Seq[(String, String)]] = i match {
 
       case Input.EOF =>
         if (buffer.isEmpty) {
@@ -45,7 +45,7 @@ object Framing {
         var idx = buffer.indexOf('\n')
         var end = false
 
-        while (idx >= 0) {
+        while (!end && idx >= 0) {
           val line = if (idx > 0 && buffer(idx - 1) == '\r') {
             buffer.take(idx - 1)
           } else {
@@ -54,7 +54,10 @@ object Framing {
           if (line.isEmpty) {
             end = true
           } else {
-            lines += line
+            val delimIdx = line.indexOf(':')
+            if ( delimIdx >= 0) {
+              lines += line.take(delimIdx).utf8String -> line.drop(delimIdx + 1).utf8String.trim
+            }
           }
           buffer = buffer.drop(idx + 1)
           idx = buffer.indexOf('\n')

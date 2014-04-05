@@ -8,7 +8,7 @@ import akka.io.Tcp
 import akka.actor.ActorRef
 
 class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
-  extends Enumerator[ByteString] {
+  extends Enumerator[ByteString] with FeedSink[ByteString] {
   private val initialIteratee = Promise[Iteratee[ByteString, _]]()
 
   private val resultIteratee = Promise[Iteratee[ByteString, _]]()

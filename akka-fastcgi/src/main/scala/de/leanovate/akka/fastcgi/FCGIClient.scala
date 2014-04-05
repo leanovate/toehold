@@ -24,7 +24,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       handler.connectionFailed()
     case c@Connected(remote, local) =>
       if (log.isDebugEnabled) {
-        log.debug(s"Connected $remote -> $local")
+        log.debug(s"Connected $local -> $remote")
       }
       sender ! Register(self)
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck)
@@ -37,12 +37,20 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
     out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
 
     case Received(data) =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Chunk: ${data.length} bytes")
+      }
       in.feedChunk(data)
     case SendRecordAck =>
+      if (log.isDebugEnabled) {
+        log.debug("Write ack")
+      }
       out.acknowledge()
-    case _: ConnectionClosed =>
+    case c: ConnectionClosed =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Connection closed: $c")
+      }
       in.feedEOF()
-      println(">>> Close")
       context stop self
   }
 }

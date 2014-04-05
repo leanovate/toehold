@@ -6,11 +6,14 @@ import play.api.Play.current
 import play.api.Play.configuration
 import de.leanovate.akka.fastcgi.FCGIRequestActor
 import akka.pattern.ask
-import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
-import akka.util.{Timeout, ByteString}
+import de.leanovate.akka.fastcgi.request.FCGIRequestContent
+import akka.util.{ByteString, Timeout}
 import de.leanovate.akka.iteratee.adapt.PromiseEnumerator
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
+import play.api.libs.iteratee.Iteratee
+import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
+import scala.Some
 
 object FastCGIController extends Controller {
   val fastCGIHost = configuration.getString("fastcgi.host").getOrElse("localhost")
@@ -24,17 +27,44 @@ object FastCGIController extends Controller {
 
   def serve(documentRoot: String, path: String) = EssentialAction {
     requestHeader =>
-      val content = new PromiseEnumerator[Array[Byte]]
+      requestHeader.contentType.map {
+        contentType =>
+          requestHeader.headers.get("content-length").map {
+            contentLength =>
+              val content = new PromiseEnumerator[Array[Byte]]
 
-      fcgiRequestActor ? FCGIResponderRequest(
-                                               requestHeader.method,
-                                               path,
-                                               requestHeader.rawQueryString,
-                                               documentRoot,
-                                               requestHeader.headers.toMap,
-                                               content.map(bytes => ByteString(bytes))
-                                             )
+              fcgiRequestActor ? FCGIResponderRequest(
+                                                       requestHeader.method,
+                                                       path,
+                                                       requestHeader.rawQueryString,
+                                                       documentRoot,
+                                                       requestHeader.headers.toMap,
+                                                       Some(FCGIRequestContent(contentType, contentLength.toLong,
+                                                                                content
+                                                                                  .map(bytes => ByteString(bytes))))
+                                                     )
 
-      content.promisedIteratee.map(_ => Ok("bla"))
+              content.promisedIteratee.map(_ => Ok("bla"))
+          }.getOrElse {
+            Iteratee.ignore[Array[Byte]].map {
+              _ => new Status(LENGTH_REQUIRED)
+            }
+          }
+      }.getOrElse {
+        val content = new PromiseEnumerator[Array[Byte]]
+
+        fcgiRequestActor ? FCGIResponderRequest(
+                                                 requestHeader.method,
+                                                 path,
+                                                 requestHeader.rawQueryString,
+                                                 documentRoot,
+                                                 requestHeader.headers.toMap,
+                                                 None
+                                               )
+
+        content.promisedIteratee.map(_ => Ok("bla"))
+
+      }
+
   }
 }
