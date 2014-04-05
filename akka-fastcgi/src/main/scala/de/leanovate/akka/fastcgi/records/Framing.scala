@@ -25,8 +25,6 @@ object Framing {
       Seq(Input.EOF)
   }
 
-  def bytesToRecords(implicit ctx: ExecutionContext) = Enumeratee.mapInputFlatten(new BytesToFCGIRecords)
-
   def headerLinesFromStdOut(implicit ctx: ExecutionContext) = {
 
     var buffer = ByteString.empty

@@ -4,9 +4,10 @@ import akka.actor.{ActorLogging, ActorRef, Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
-import de.leanovate.akka.fastcgi.records.{Framing, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, Framing, FCGIRecord}
 import FCGIClient._
-import de.leanovate.akka.iteratee.tcp.{InStreamEnumerator, OutStreamAdapter}
+import de.leanovate.akka.iteratee.tcp.{FeedSink, InStreamEnumerator, OutStreamAdapter}
+import akka.util.ByteString
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
 
@@ -29,11 +30,17 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       sender ! Register(self)
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck)
       val in = new InStreamEnumerator(sender)
-      context become connected(sender, in, out)
-      handler.connected(in &> Framing.bytesToRecords, out.iterator)
+      val httpExtractor = new HeaderExtractor({
+        headers =>
+          handler.headerReceived(headers, in)
+      }, in)
+      val filterStdOut = new FilterStdOut(stderrToLog, httpExtractor)
+      val bytesToFCGIRecords = new BytesToFCGIRecords(filterStdOut)
+      context become connected(sender, bytesToFCGIRecords, out)
+      handler.connected(out.iterator)
   }
 
-  def connected(connection: ActorRef, in: InStreamEnumerator,
+  def connected(connection: ActorRef, in: FeedSink[ByteString],
     out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
 
     case Received(data) =>
@@ -53,6 +60,12 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       in.feedEOF()
       context stop self
   }
+
+  private def stderrToLog(stderr: ByteString) {
+
+    log.error(s"Stderr: ${stderr.utf8String}")
+  }
+
 }
 
 object FCGIClient {

@@ -3,9 +3,8 @@ package de.leanovate.akka.fastcgi
 import akka.actor._
 import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIResponderRequest}
 import play.api.libs.iteratee.{Iteratee, Enumerator}
-import de.leanovate.akka.fastcgi.records.{Framing, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
-import de.leanovate.akka.iteratee.adapt.PromiseEnumerator
 import akka.util.ByteString
 
 class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
@@ -23,23 +22,22 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
       }
   }
 
-  private def stderrToLog(stderr:ByteString) {
-    log.error(s"Stderr: ${stderr.utf8String}")
-  }
-
   private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
 
     val handler = new FCGIConnectionHandler {
+      override def connected(out: Iteratee[FCGIRecord, Unit]) = {
+
+        request.records(1) |>> out
+      }
+
+      override def headerReceived(headers: Seq[(String, String)], in: Enumerator[ByteString]) = {
+
+        target ! FCGIResponderSuccess(headers, in)
+      }
+
       override def connectionFailed() {
 
         target ! FCGIResponderError(s"Connection to FastCGI process $host:$port failed")
-      }
-
-      override def connected(in: Enumerator[FCGIRecord], out: Iteratee[FCGIRecord, Unit]) = {
-
-        target ! FCGIResponderSuccess(Seq.empty, in &> Framing.filterStdOut(stderrToLog))
-
-        request.records(1) |>> out
       }
     }
 

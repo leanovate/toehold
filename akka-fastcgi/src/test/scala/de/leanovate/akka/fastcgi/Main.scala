@@ -16,34 +16,6 @@ object Main {
 
     import system.dispatcher
 
-    val handler = new FCGIConnectionHandler {
-      override def connectionFailed() = {
-
-        println(">>> Connection failed")
-      }
-
-      override def connected(in: Enumerator[FCGIRecord], out: Iteratee[FCGIRecord, Unit]) = {
-
-        println(">>> Connected")
-
-        in |>> Iteratee.foreach[FCGIRecord] {
-          case FCGIStdErr(_, content) =>
-            println("Err: " + content.utf8String)
-          case FCGIStdOut(_, content) =>
-            println("Out: " + content.utf8String)
-          case record =>
-            println(record)
-        }.map {
-          _ =>
-            println("EOF")
-        }
-        val request = FCGIResponderRequest("GET", "/test.php", "", "./app-php",
-                                            Map.empty, None)
-
-        request.records(1) |>> out
-      }
-    }
-
     //    val server = system.actorOf(FCGIClient.props("localhost", 9110, handler))
 
     val requester = system.actorOf(FCGIRequestActor.props("localhost", 9110))

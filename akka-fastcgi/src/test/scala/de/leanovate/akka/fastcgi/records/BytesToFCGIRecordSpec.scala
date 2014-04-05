@@ -3,11 +3,8 @@ package de.leanovate.akka.fastcgi.records
 import org.scalatest.{Matchers, FunSpec}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
-import play.api.libs.iteratee.{Iteratee, Enumerator}
-import scala.concurrent.Await
+import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
 
 class BytesToFCGIRecordSpec extends FunSpec with Matchers {
   describe("BytesToFCGIRecords") {
@@ -32,29 +29,29 @@ class BytesToFCGIRecordSpec extends FunSpec with Matchers {
       result(4) should be(FCGIEndRequest(1))
     }
 
-    it("should be able to convert a FCGI stream to a sequence of FCGIRecords") {
-      val collected = Enumerator[ByteString](responseData) &> Framing.bytesToRecords |>>> Iteratee.getChunks
-
-      val result = Await.result(collected, 5.seconds)
-
-      isExpected(result)
-    }
-
-    it("should not break if the data is send in arbitrary chunks") {
-      var idx = 0
-      val chunks = Seq.newBuilder[ByteString]
-
-      while (idx < responseData.length) {
-        val end = Math.min(Random.nextInt(30) + 10 + idx, responseData.length)
-        chunks += responseData.slice(idx, end)
-        idx = end
-      }
-
-      val collected = Enumerator[ByteString](chunks.result(): _*) &> Framing.bytesToRecords |>>> Iteratee.getChunks
-
-      val result = Await.result(collected, 5.seconds)
-
-      isExpected(result)
-    }
+//    it("should be able to convert a FCGI stream to a sequence of FCGIRecords") {
+//      val collected = Enumerator[ByteString](responseData) &> Framing.bytesToRecords |>>> Iteratee.getChunks
+//
+//      val result = Await.result(collected, 5.seconds)
+//
+//      isExpected(result)
+//    }
+//
+//    it("should not break if the data is send in arbitrary chunks") {
+//      var idx = 0
+//      val chunks = Seq.newBuilder[ByteString]
+//
+//      while (idx < responseData.length) {
+//        val end = Math.min(Random.nextInt(30) + 10 + idx, responseData.length)
+//        chunks += responseData.slice(idx, end)
+//        idx = end
+//      }
+//
+//      val collected = Enumerator[ByteString](chunks.result(): _*) &> Framing.bytesToRecords |>>> Iteratee.getChunks
+//
+//      val result = Await.result(collected, 5.seconds)
+//
+//      isExpected(result)
+//    }
   }
 }
