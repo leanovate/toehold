@@ -27,7 +27,7 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
     val handler = new FCGIConnectionHandler {
       override def connected(out: Iteratee[FCGIRecord, Unit]) = {
 
-        request.records(1) |>> out
+        request.writeTo(1, out)
       }
 
       override def headerReceived(headers: Seq[(String, String)], in: Enumerator[ByteString]) = {

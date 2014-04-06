@@ -4,13 +4,14 @@ import play.api.mvc._
 import play.api.Play._
 import akka.util.{ByteString, Timeout}
 import play.api.libs.concurrent.Akka
-import play.api.libs.iteratee.Iteratee
+import play.api.libs.iteratee.{Enumeratee, Iteratee}
 import scala.concurrent.duration._
 import akka.pattern.ask
 import play.api.libs.concurrent.Execution.Implicits._
 import de.leanovate.akka.fastcgi.FCGIRequestActor
 import de.leanovate.akka.iteratee.adapt.PromiseEnumerator
 import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
+import scala.concurrent.Promise
 
 object FastCGIController extends Controller {
   val fastCGIHost = configuration.getString("fastcgi.host").getOrElse("localhost")
@@ -28,32 +29,35 @@ object FastCGIController extends Controller {
         contentType =>
           requestHeader.headers.get("content-length").map {
             contentLength =>
-              val content = new PromiseEnumerator[Array[Byte]]
+              val p = Promise[Iteratee[Array[Byte], Any]]()
+              val content = FCGIRequestContent(
+              contentType,
+              contentLength.toLong, {
+                it =>
+                  p.success(it)
+              })
               val request = FCGIResponderRequest(
                 requestHeader.method,
                 "/" + path,
                 requestHeader.rawQueryString,
                 documentRoot,
                 requestHeader.headers.toMap,
-                Some(FCGIRequestContent(contentType, contentLength.toLong,
-                  content.map(bytes => ByteString(bytes))))
+                Some(content)
               )
-
-              (fcgiRequestActor ? request).foreach {
+              println(request)
+              val resultPromise = Promise[SimpleResult]
+              (fcgiRequestActor ? request).map {
                 case FCGIResponderSuccess(headers, content) =>
                   println(headers)
-                  content |>> Iteratee.foreach[ByteString] {
-                    chunk =>
-                      println("Chunk: " + chunk.utf8String)
-                  }.map {
-                    _ =>
-                      println("EOF")
-                  }
+                  resultPromise.success(Status(OK).chunked(content.map(_.toArray)))
                 case FCGIResponderError(msg) =>
-                  InternalServerError(msg)
+                  resultPromise.success(InternalServerError(msg))
               }
 
-              content.promisedIteratee.map(_ => Ok("bla"))
+              Iteratee.flatten(p.future).mapM {
+                _ =>
+                  resultPromise.future
+              }
           }.getOrElse {
             Iteratee.ignore[Array[Byte]].map {
               _ => new Status(LENGTH_REQUIRED)

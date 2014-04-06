@@ -12,7 +12,8 @@ object Framing {
       case Input.Empty =>
         Input.Empty
       case Input.EOF =>
-        Input.El(FCGIStdin(id, ByteString()))
+        println(">>> the eof")
+        Input.El(FCGIStdin(id, ByteString.empty))
     }
 
   def filterStdOut(stderr: ByteString => Unit)(implicit ctx: ExecutionContext) = Enumeratee.mapConcatInput[FCGIRecord] {
@@ -53,7 +54,7 @@ object Framing {
             end = true
           } else {
             val delimIdx = line.indexOf(':')
-            if ( delimIdx >= 0) {
+            if (delimIdx >= 0) {
               lines += line.take(delimIdx).utf8String -> line.drop(delimIdx + 1).utf8String.trim
             }
           }

@@ -6,7 +6,8 @@ import play.api.libs.iteratee.{Done, Input, Cont, Iteratee}
 import akka.io.Tcp
 import akka.io.Tcp.Event
 
-class OutStreamAdapter[A](connection: ActorRef, rawWriter: RawWriter[A], ackEvent: Event)(implicit client: ActorRef) {
+class OutStreamAdapter[A](connection: ActorRef, rawWriter: RawWriter[A], ackEvent: Event, closeOnEof: Boolean)
+  (implicit client: ActorRef) {
   private var pending: Option[Promise[Iteratee[A, Unit]]] = None
 
   def iterator = Cont[A, Unit](step)
@@ -25,7 +26,9 @@ class OutStreamAdapter[A](connection: ActorRef, rawWriter: RawWriter[A], ackEven
   private def step(i: Input[A]): Iteratee[A, Unit] = i match {
 
     case Input.EOF =>
-      connection ! Tcp.Close
+      if (closeOnEof) {
+        connection ! Tcp.Close
+      }
       Done(Unit, Input.EOF)
     case Input.Empty =>
       Cont[A, Unit](step)

@@ -33,16 +33,6 @@ object FastCGIController extends Controller {
             contentLength =>
               val content = new PromiseEnumerator[Array[Byte]]
 
-              fcgiRequestActor ? FCGIResponderRequest(
-                                                       requestHeader.method,
-                                                       path,
-                                                       requestHeader.rawQueryString,
-                                                       documentRoot,
-                                                       requestHeader.headers.toMap,
-                                                       Some(FCGIRequestContent(contentType, contentLength.toLong,
-                                                                                content
-                                                                                  .map(bytes => ByteString(bytes))))
-                                                     )
 
               content.promisedIteratee.map(_ => Ok("bla"))
           }.getOrElse {

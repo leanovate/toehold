@@ -20,16 +20,6 @@ trait FCGIRecord {
                          ) ++ content
 }
 
-class RawRecord(encoded: Array[Byte]) extends FCGIRecord {
-  override def content = ???
-
-  override def typeId = ???
-
-  override def id = ???
-
-  override def encode = ByteString(encoded)
-}
-
 object FCGIRecord extends RawWriter[FCGIRecord] {
   val FCGI_VERSION = 1.toByte
 

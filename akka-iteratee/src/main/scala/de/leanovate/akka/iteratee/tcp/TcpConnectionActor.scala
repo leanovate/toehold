@@ -10,7 +10,7 @@ class TcpConnectionActor(connection: ActorRef, remote: InetSocketAddress, local:
 
   val in = new InStreamEnumerator(connection)
 
-  val out = new OutStreamAdapter(connection, RawWriter.raw, WriteAck)
+  val out = new OutStreamAdapter(connection, RawWriter.raw, WriteAck, closeOnEof = true)
 
   connection ! Tcp.Register(self)
 

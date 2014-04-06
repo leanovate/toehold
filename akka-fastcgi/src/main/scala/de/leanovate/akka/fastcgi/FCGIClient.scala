@@ -28,7 +28,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
         log.debug(s"Connected $local -> $remote")
       }
       sender ! Register(self)
-      val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck)
+      val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck, closeOnEof = false)
       val in = new InStreamEnumerator(sender)
       val httpExtractor = new HeaderExtractor({
         headers =>
