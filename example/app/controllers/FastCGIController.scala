@@ -23,7 +23,7 @@ object FastCGIController extends Controller {
 
   val fcgiRequestActor = Akka.system.actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort))
 
-  def serve(documentRoot: String, path: String) = EssentialAction {
+  def serve(documentRoot: String, path: String, extension: String) = EssentialAction {
     requestHeader =>
       requestHeader.contentType.map {
         contentType =>
@@ -38,7 +38,7 @@ object FastCGIController extends Controller {
               })
               val request = FCGIResponderRequest(
                 requestHeader.method,
-                "/" + path,
+                "/" + path + extension,
                 requestHeader.rawQueryString,
                 documentRoot,
                 requestHeader.headers.toMap,
@@ -49,7 +49,7 @@ object FastCGIController extends Controller {
               (fcgiRequestActor ? request).map {
                 case FCGIResponderSuccess(headers, content) =>
                   println(headers)
-                  resultPromise.success(Status(OK).chunked(content.map(_.toArray)))
+                  resultPromise.success(SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray)))
                 case FCGIResponderError(msg) =>
                   resultPromise.success(InternalServerError(msg))
               }
@@ -66,7 +66,7 @@ object FastCGIController extends Controller {
       }.getOrElse {
         val request = FCGIResponderRequest(
           requestHeader.method,
-          "/" + path,
+          "/" + path + extension,
           requestHeader.rawQueryString,
           documentRoot,
           requestHeader.headers.toMap,
@@ -79,7 +79,7 @@ object FastCGIController extends Controller {
             (fcgiRequestActor ? request).map {
               case FCGIResponderSuccess(headers, content) =>
                 println(headers)
-                Status(OK).chunked(content.map(_.toArray))
+                SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray))
               case FCGIResponderError(msg) =>
                 InternalServerError(msg)
             }

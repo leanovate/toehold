@@ -8,5 +8,5 @@ GET         /                    controllers.Application.index
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file        controllers.Assets.at(path="/public", file)
 
-GET         /*path               controllers.FastCGIController.serve(documentRoot = "./app-php", path)
-POST        /*path               controllers.FastCGIController.serve(documentRoot = "./app-php", path)
+POST        /*path.php           de.leanovate.play.fastcgi.FastCGIController.serve(documentRoot = "./app-php", path, extension = ".php")
+GET         /*path.php           de.leanovate.play.fastcgi.FastCGIController.serve(documentRoot = "./app-php", path, extension = ".php")

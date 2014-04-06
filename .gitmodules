@@ -1,0 +1,3 @@
+[submodule "example/app-php/docuwiki"]
+	path = example/app-php/docuwiki
+	url = https://github.com/splitbrain/dokuwiki.git
