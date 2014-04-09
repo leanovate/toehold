@@ -4,26 +4,20 @@ import play.api.mvc.{ResponseHeader, SimpleResult, EssentialAction, Controller}
 import play.api.libs.concurrent.Akka
 import play.api.Play.current
 import play.api.Play.configuration
-import de.leanovate.akka.fastcgi.FCGIRequestActor
-import akka.pattern.ask
 import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
-import akka.util.{ByteString, Timeout}
-import de.leanovate.akka.iteratee.adapt.PromiseEnumerator
+import akka.util.Timeout
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
 import play.api.libs.iteratee.Iteratee
 import scala.Some
 import scala.concurrent.Promise
+import akka.pattern.ask
 
 object FastCGIController extends Controller {
-  val fastCGIHost = configuration.getString("fastcgi.host").getOrElse("localhost")
-
-  val fastCGIPort = configuration.getInt("fastcgi.port").getOrElse(9001)
-
   implicit val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
     .getOrElse(60.seconds))
 
-  val fcgiRequestActor = Akka.system.actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort))
+  val fastCGIActor = Akka.system.actorSelection("/user/" + FastCGISupport.FASTCGI_ACTOR_NAME)
 
   def serve(documentRoot: String, path: String, extension: String) = EssentialAction {
     requestHeader =>
@@ -48,7 +42,7 @@ object FastCGIController extends Controller {
                                                 )
               println(request)
               val resultPromise = Promise[SimpleResult]
-              (fcgiRequestActor ? request).map {
+              (fastCGIActor ? request).map {
                 case FCGIResponderSuccess(headers, content) =>
                   println(headers)
                   resultPromise.success(SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray)))
@@ -78,7 +72,7 @@ object FastCGIController extends Controller {
 
         Iteratee.ignore[Array[Byte]].mapM(
                                            _ =>
-                                             (fcgiRequestActor ? request).map {
+                                             (fastCGIActor ? request).map {
                                                case FCGIResponderSuccess(headers, content) =>
                                                  println(headers)
                                                  SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray))

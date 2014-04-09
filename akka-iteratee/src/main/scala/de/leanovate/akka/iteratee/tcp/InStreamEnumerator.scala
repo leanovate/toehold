@@ -8,7 +8,7 @@ import akka.io.Tcp
 import akka.actor.ActorRef
 
 class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
-  extends Enumerator[ByteString] with FeedSink[ByteString] {
+  extends Enumerator[ByteString] with DataSink[ByteString] {
   private val initialIteratee = Promise[Iteratee[ByteString, _]]()
 
   private val resultIteratee = Promise[Iteratee[ByteString, _]]()
@@ -19,12 +19,12 @@ class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: E
 
   private val suspended = new AtomicBoolean(false)
 
-  def feedChunk(data: ByteString) {
+  def sendChunk(data: ByteString) {
 
     feed(Input.El(data), data.size)
   }
 
-  def feedEOF() {
+  def sendEOF() {
 
     resultIteratee.completeWith(feed(Input.EOF, 0))
   }

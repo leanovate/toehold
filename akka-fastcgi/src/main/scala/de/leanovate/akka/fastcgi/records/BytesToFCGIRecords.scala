@@ -1,32 +1,30 @@
 package de.leanovate.akka.fastcgi.records
 
-import play.api.libs.iteratee.{Enumeratee, Enumerator, Input}
 import akka.util.ByteString
-import scala.concurrent.ExecutionContext
-import de.leanovate.akka.iteratee.tcp.FeedSink
+import de.leanovate.akka.iteratee.tcp.DataSink
 
-class BytesToFCGIRecords(target: FeedSink[FCGIRecord]) extends FeedSink[ByteString] {
+class BytesToFCGIRecords(target: DataSink[FCGIRecord]) extends DataSink[ByteString] {
   private var buffer = ByteString.empty
 
-  override def feedChunk(data: ByteString) = {
+  override def sendChunk(data: ByteString) = {
     buffer ++= data
     var extracted = FCGIRecord.decode(buffer)
     buffer = extracted._2
     while (extracted._1.isDefined) {
-      target.feedChunk(extracted._1.get)
+      target.sendChunk(extracted._1.get)
       extracted = FCGIRecord.decode(buffer)
       buffer = extracted._2
     }
   }
 
-  override def feedEOF() = {
+  override def sendEOF() = {
     var extracted = FCGIRecord.decode(buffer)
     buffer = extracted._2
     while (extracted._1.isDefined) {
-      target.feedChunk(extracted._1.get)
+      target.sendChunk(extracted._1.get)
       extracted = FCGIRecord.decode(buffer)
       buffer = extracted._2
     }
-    target.feedEOF()
+    target.sendEOF()
   }
 }

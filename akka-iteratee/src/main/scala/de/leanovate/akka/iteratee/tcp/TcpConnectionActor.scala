@@ -16,10 +16,10 @@ class TcpConnectionActor(connection: ActorRef, remote: InetSocketAddress, local:
 
   override def receive = {
     case Tcp.Received(data) =>
-      in.feedChunk(data)
+      in.sendChunk(data)
 
     case _: ConnectionClosed =>
-      in.feedEOF()
+      in.sendEOF()
       context stop self
 
     case Tcp.CommandFailed(_: Tcp.Write) =>

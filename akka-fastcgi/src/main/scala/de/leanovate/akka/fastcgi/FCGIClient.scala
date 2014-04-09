@@ -4,9 +4,9 @@ import akka.actor.{ActorLogging, ActorRef, Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
-import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, Framing, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, FCGIRecord}
 import FCGIClient._
-import de.leanovate.akka.iteratee.tcp.{FeedSink, InStreamEnumerator, OutStreamAdapter}
+import de.leanovate.akka.iteratee.tcp.{DataSink, InStreamEnumerator, OutStreamAdapter}
 import akka.util.ByteString
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
@@ -23,9 +23,9 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
         log.debug(s"Connect failed: $c")
       }
       handler.connectionFailed()
-    case c@Connected(remote, local) =>
+    case c@Connected(remoteAddress, localAddress) =>
       if (log.isDebugEnabled) {
-        log.debug(s"Connected $local -> $remote")
+        log.debug(s"Connected $remoteAddress -> $localAddress")
       }
       sender ! Register(self)
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck, closeOnEof = false)
@@ -40,14 +40,14 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       handler.connected(out.iterator)
   }
 
-  def connected(connection: ActorRef, in: FeedSink[ByteString],
+  def connected(connection: ActorRef, in: DataSink[ByteString],
     out: OutStreamAdapter[FCGIRecord]): PartialFunction[Any, Unit] = {
 
     case Received(data) =>
       if (log.isDebugEnabled) {
         log.debug(s"Chunk: ${data.length} bytes")
       }
-      in.feedChunk(data)
+      in.sendChunk(data)
     case SendRecordAck =>
       if (log.isDebugEnabled) {
         log.debug("Write ack")
@@ -57,7 +57,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       if (log.isDebugEnabled) {
         log.debug(s"Connection closed: $c")
       }
-      in.feedEOF()
+      in.sendEOF()
       context stop self
   }
 

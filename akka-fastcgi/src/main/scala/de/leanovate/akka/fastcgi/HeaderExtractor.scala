@@ -1,25 +1,27 @@
 package de.leanovate.akka.fastcgi
 
-import de.leanovate.akka.iteratee.tcp.FeedSink
+import de.leanovate.akka.iteratee.tcp.DataSink
 import akka.util.ByteString
-import play.api.libs.iteratee.{Cont, Input, Done}
 
-class HeaderExtractor(headers: Seq[(String, String)] => Unit, body: FeedSink[ByteString]) extends FeedSink[ByteString] {
-  var buffer = ByteString.empty
+class HeaderExtractor(headers: Seq[(String, String)] => Unit, body: DataSink[ByteString]) extends DataSink[ByteString] {
 
-  val lines = Seq.newBuilder[(String, String)]
+  sealed trait State {
+    def sendChunk(data: ByteString)
 
-  var end = false
+    def sendEOF()
+  }
 
-  override def feedChunk(data: ByteString) = {
+  class ExtractHeadersState extends State {
+    var buffer = ByteString.empty
 
-    if (end) {
-      body.feedChunk(data)
-    } else {
+    val lines = Seq.newBuilder[(String, String)]
+
+    override def sendChunk(data: ByteString) = {
+
       buffer ++= data
       var idx = buffer.indexOf('\n')
 
-      while (!end && idx >= 0) {
+      while (idx >= 0) {
         val line = if (idx > 0 && buffer(idx - 1) == '\r') {
           buffer.take(idx - 1)
         } else {
@@ -28,12 +30,13 @@ class HeaderExtractor(headers: Seq[(String, String)] => Unit, body: FeedSink[Byt
         buffer = buffer.drop(idx + 1)
         idx = buffer.indexOf('\n')
         if (line.isEmpty) {
-          end = true
+          state = new PassThruState()
           headers(lines.result())
           if (!buffer.isEmpty) {
-            body.feedChunk(buffer)
+            body.sendChunk(buffer)
             buffer = ByteString.empty
           }
+          idx = -1
         } else {
           val delimIdx = line.indexOf(':')
           if (delimIdx >= 0) {
@@ -42,13 +45,25 @@ class HeaderExtractor(headers: Seq[(String, String)] => Unit, body: FeedSink[Byt
         }
       }
     }
-  }
 
-  override def feedEOF() = {
+    override def sendEOF() = {
 
-    if (!end) {
       headers(lines.result())
+      body.sendEOF()
     }
-    body.feedEOF()
   }
+
+  class PassThruState extends State {
+    override def sendChunk(data: ByteString) = body.sendChunk(data)
+
+    override def sendEOF() = body.sendEOF()
+  }
+
+  var state: State = new ExtractHeadersState
+
+
+
+  override def sendChunk(data: ByteString) = state.sendChunk(data)
+
+  override def sendEOF() = state.sendEOF()
 }

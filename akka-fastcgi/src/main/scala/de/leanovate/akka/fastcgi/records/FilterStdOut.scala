@@ -1,24 +1,24 @@
 package de.leanovate.akka.fastcgi.records
 
-import de.leanovate.akka.iteratee.tcp.FeedSink
+import de.leanovate.akka.iteratee.tcp.DataSink
 import akka.util.ByteString
 
-class FilterStdOut(stderr: ByteString => Unit, target: FeedSink[ByteString]) extends FeedSink[FCGIRecord] {
+class FilterStdOut(stderr: ByteString => Unit, target: DataSink[ByteString]) extends DataSink[FCGIRecord] {
   var done = false
 
-  override def feedChunk(data: FCGIRecord) = if (!done) {
+  override def sendChunk(data: FCGIRecord) = if (!done) {
     data match {
       case FCGIStdOut(_, content) =>
-        target.feedChunk(content)
+        target.sendChunk(content)
       case FCGIStdErr(_, content) =>
         stderr(content)
       case _: FCGIEndRequest =>
-        feedEOF()
+        sendEOF()
     }
   }
 
-  override def feedEOF() = if (!done) {
+  override def sendEOF() = if (!done) {
     done = true
-    target.feedEOF()
+    target.sendEOF()
   }
 }

@@ -2,26 +2,20 @@ package controllers
 
 import play.api.mvc._
 import play.api.Play._
-import akka.util.{ByteString, Timeout}
+import akka.util.Timeout
 import play.api.libs.concurrent.Akka
-import play.api.libs.iteratee.{Enumeratee, Iteratee}
+import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
-import akka.pattern.ask
 import play.api.libs.concurrent.Execution.Implicits._
-import de.leanovate.akka.fastcgi.FCGIRequestActor
-import de.leanovate.akka.iteratee.adapt.PromiseEnumerator
 import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
 import scala.concurrent.Promise
+import akka.pattern.ask
 
 object FastCGIController extends Controller {
-  val fastCGIHost = configuration.getString("fastcgi.host").getOrElse("localhost")
-
-  val fastCGIPort = configuration.getInt("fastcgi.port").getOrElse(9001)
-
   implicit val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
     .getOrElse(60.seconds))
 
-  val fcgiRequestActor = Akka.system.actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort))
+  val fcgiRequestActor = Akka.system.actorSelection("/user/fastcgiRequest")
 
   def serve(documentRoot: String, path: String, extension: String) = EssentialAction {
     requestHeader =>
