@@ -1,3 +1,9 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.play.fastcgi
 
 import play.api.mvc.{ResponseHeader, SimpleResult, EssentialAction, Controller}
@@ -41,11 +47,11 @@ object FastCGIController extends Controller {
                                                   Some(content)
                                                 )
               println(request)
-              val resultPromise = Promise[SimpleResult]
+              val resultPromise = Promise[SimpleResult]()
               (fastCGIActor ? request).map {
-                case FCGIResponderSuccess(headers, content) =>
+                case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
                   println(headers)
-                  resultPromise.success(SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray)))
+                  resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), content.map(_.toArray)))
                 case FCGIResponderError(msg) =>
                   resultPromise.success(InternalServerError(msg))
               }
@@ -70,16 +76,16 @@ object FastCGIController extends Controller {
                                           )
         println(request)
 
-        Iteratee.ignore[Array[Byte]].mapM(
-                                           _ =>
-                                             (fastCGIActor ? request).map {
-                                               case FCGIResponderSuccess(headers, content) =>
-                                                 println(headers)
-                                                 SimpleResult(ResponseHeader(OK, headers.toMap), content.map(_.toArray))
-                                               case FCGIResponderError(msg) =>
-                                                 InternalServerError(msg)
-                                             }
-                                         )
+        Iteratee.ignore[Array[Byte]].mapM {
+          _ =>
+            (fastCGIActor ? request).map {
+              case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
+                println(headers)
+                SimpleResult(ResponseHeader(statusCode, headers.toMap), content.map(_.toArray))
+              case FCGIResponderError(msg) =>
+                InternalServerError(msg)
+            }
+        }
       }
   }
 }

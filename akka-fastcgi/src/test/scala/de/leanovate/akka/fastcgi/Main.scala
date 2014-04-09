@@ -24,7 +24,7 @@ object Main {
                                         Some(FCGIRequestContent("text/plain", "Tri tra tulla Hubba\n")))
 
     (requester ? request).foreach {
-      case FCGIResponderSuccess(headers, content) =>
+      case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
         println(headers)
         content |>> Iteratee.foreach[ByteString] {
           chunk =>

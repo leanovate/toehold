@@ -1,3 +1,9 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.play.fastcgi
 
 import play.api.{Application, GlobalSettings}
@@ -18,7 +24,7 @@ trait FastCGISupport extends GlobalSettings {
 
     val fastCGIPort = app.configuration.getInt("fastcgi.port").getOrElse(9001)
 
-    Akka.system.actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort), FastCGISupport.FASTCGI_ACTOR_NAME)
+    Akka.system(app).actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort), FastCGISupport.FASTCGI_ACTOR_NAME)
   }
 }
 

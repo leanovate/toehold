@@ -4,7 +4,7 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package controllers
+package de.leanovate.play.fastcgi
 
 import play.api.mvc.{Action, Controller}
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}

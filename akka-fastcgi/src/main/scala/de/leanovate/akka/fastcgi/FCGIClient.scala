@@ -31,8 +31,8 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       val out = new OutStreamAdapter[FCGIRecord](sender, FCGIRecord, SendRecordAck, closeOnEof = false)
       val in = new InStreamEnumerator(sender)
       val httpExtractor = new HeaderExtractor({
-        headers =>
-          handler.headerReceived(headers, in)
+        (statusCode, statusLine, headers) =>
+          handler.headerReceived(statusCode, statusLine, headers, in)
       }, in)
       val filterStdOut = new FilterStdOut(stderrToLog, httpExtractor)
       val bytesToFCGIRecords = new BytesToFCGIRecords(filterStdOut)
