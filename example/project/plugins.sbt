@@ -1,5 +1,5 @@
 // Comment to get more information during initialization
-logLevel := Level.Warn
+logLevel := Level.Info
 
 resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
 

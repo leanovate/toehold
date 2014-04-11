@@ -1,11 +1,9 @@
 name := "example"
 
-organization := "de.leanovate.toehold"
-
-version := "0.0.1-SNAPSHOT"
+Common.settings
 
 libraryDependencies ++= Seq(
-  "de.leanovate.toehold" %% "play-fastcgi" % version.value changing()
+  "de.leanovate.toehold" %% "play-fastcgi" % version.value
 )     
 
 play.Project.playScalaSettings
