@@ -5,43 +5,27 @@ import scala.concurrent.Promise
 import play.api.libs.iteratee.{Done, Input, Cont, Iteratee}
 import akka.io.Tcp
 import akka.io.Tcp.Event
+import akka.util.ByteString
+import de.leanovate.akka.iteratee.tcp.PMStream.Control
 
-class OutStreamAdapter[A](connection: ActorRef, rawWriter: RawWriter[A], ackEvent: Event, closeOnEof: Boolean)
-  (implicit client: ActorRef) {
-  private var pending: Option[Promise[Iteratee[A, Unit]]] = None
-
+class OutStreamAdapter[A](target: PMStream[ByteString], rawWriter: RawWriter[A])(implicit client: ActorRef) {
   def iterator = Cont[A, Unit](step)
-
-  def acknowledge() {
-
-    pending match {
-      case Some(promise) =>
-        pending = None
-        promise.success(Cont[A, Unit](step))
-      case None =>
-        throw new RuntimeException("acknowledge without pending write")
-    }
-  }
 
   private def step(i: Input[A]): Iteratee[A, Unit] = i match {
 
     case Input.EOF =>
-      if (closeOnEof) {
-        connection ! Tcp.Close
-      }
+      target.sendEOF()
       Done(Unit, Input.EOF)
     case Input.Empty =>
       Cont[A, Unit](step)
     case Input.El(e) =>
 
-      pending match {
-        case None =>
-          val promise = Promise[Iteratee[A, Unit]]()
-          pending = Some(promise)
-          connection ! Tcp.Write(rawWriter.write(e), ackEvent)
-          Iteratee.flatten(promise.future)
-        case Some(_) =>
-          throw new RuntimeException("Write while still waiting for acknowledge")
-      }
+      val promise = Promise[Iteratee[A, Unit]]()
+      target.sendChunk(rawWriter.write(e), new Control {
+        override def resume() = promise.success(Cont[A, Unit](step))
+
+        override def abort(msg: String) = promise.failure(new RuntimeException(msg))
+      })
+      Iteratee.flatten(promise.future)
   }
 }

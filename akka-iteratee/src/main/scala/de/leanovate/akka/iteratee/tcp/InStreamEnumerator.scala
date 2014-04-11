@@ -3,7 +3,6 @@ package de.leanovate.akka.iteratee.tcp
 import akka.util.ByteString
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import akka.io.Tcp
 import akka.actor.ActorRef
 
 class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
@@ -14,29 +13,29 @@ class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: E
 
   private var currentIteratee = initialIteratee.future
 
-  override def sendChunk(data: ByteString, resume: () => Unit) {
+  override def sendChunk(data: ByteString, ctrl: PMStream.Control) {
 
-    feed(Input.El(data), resume)
+    feed(Input.El(data), ctrl)
   }
 
   override def sendEOF() {
 
-    resultIteratee.completeWith(feed(Input.EOF, () => {}))
+    resultIteratee.completeWith(feed(Input.EOF, PMStream.EmptyControl))
   }
 
-  private def feed(input: Input[ByteString], resume: () => Unit): Future[Iteratee[ByteString, _]] = {
+  private def feed(input: Input[ByteString], ctrl: PMStream.Control): Future[Iteratee[ByteString, _]] = {
 
     currentIteratee = currentIteratee.flatMap {
       it =>
         it.pureFold {
           case Step.Cont(k) =>
-            resume()
+            ctrl.resume()
             k(input)
           case Step.Done(result, remain) =>
             Done(result, remain)
 
           case Step.Error(msg, remain) =>
-            connection ! Tcp.Abort
+            ctrl.abort(msg)
             Error(msg, remain)
         }
     }
