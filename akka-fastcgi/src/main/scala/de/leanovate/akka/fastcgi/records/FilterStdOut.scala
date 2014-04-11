@@ -6,20 +6,22 @@
 
 package de.leanovate.akka.fastcgi.records
 
-import de.leanovate.akka.iteratee.tcp.DataSink
+import de.leanovate.akka.iteratee.tcp.PMStream
 import akka.util.ByteString
 
-class FilterStdOut(stderr: ByteString => Unit, target: DataSink[ByteString]) extends DataSink[FCGIRecord] {
+class FilterStdOut(stderr: ByteString => Unit, target: PMStream[ByteString]) extends PMStream[FCGIRecord] {
   var done = false
 
-  override def sendChunk(data: FCGIRecord) = if (!done) {
+  override def sendChunk(data: FCGIRecord, resume: () => Unit) = if (!done) {
     data match {
       case FCGIStdOut(_, content) =>
-        target.sendChunk(content)
+        target.sendChunk(content, resume)
       case FCGIStdErr(_, content) =>
         stderr(content)
+        resume()
       case _: FCGIEndRequest =>
         sendEOF()
+        resume()
     }
   }
 

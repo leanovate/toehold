@@ -3,54 +3,34 @@ package de.leanovate.akka.iteratee.tcp
 import akka.util.ByteString
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import akka.io.Tcp
 import akka.actor.ActorRef
 
 class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
-  extends Enumerator[ByteString] with DataSink[ByteString] {
+  extends Enumerator[ByteString] with PMStream[ByteString] {
   private val initialIteratee = Promise[Iteratee[ByteString, _]]()
 
   private val resultIteratee = Promise[Iteratee[ByteString, _]]()
 
   private var currentIteratee = initialIteratee.future
 
-  private val pendingChunks = new AtomicInteger(0)
+  override def sendChunk(data: ByteString, resume: () => Unit) {
 
-  private val suspended = new AtomicBoolean(false)
-
-  def sendChunk(data: ByteString) {
-
-    feed(Input.El(data), data.size)
+    feed(Input.El(data), resume)
   }
 
-  def sendEOF() {
+  override def sendEOF() {
 
-    resultIteratee.completeWith(feed(Input.EOF, 0))
+    resultIteratee.completeWith(feed(Input.EOF, () => {}))
   }
 
-  def feedError(msg: String) {
+  private def feed(input: Input[ByteString], resume: () => Unit): Future[Iteratee[ByteString, _]] = {
 
-    feed(Input.EOF, 0)
-    resultIteratee.failure(new RuntimeException(msg))
-  }
-
-  private def feed(input: Input[ByteString], size: Int): Future[Iteratee[ByteString, _]] = {
-
-    if (pendingChunks.addAndGet(size) > 128 * 1024) {
-      if (suspended.compareAndSet(false, true)) {
-        connection ! Tcp.SuspendReading
-      }
-    }
     currentIteratee = currentIteratee.flatMap {
       it =>
         it.pureFold {
           case Step.Cont(k) =>
-            if (pendingChunks.addAndGet(-size) < 32 * 1024) {
-              if (suspended.compareAndSet(true, false)) {
-                connection ! Tcp.ResumeReading
-              }
-            }
+            resume()
             k(input)
           case Step.Done(result, remain) =>
             Done(result, remain)

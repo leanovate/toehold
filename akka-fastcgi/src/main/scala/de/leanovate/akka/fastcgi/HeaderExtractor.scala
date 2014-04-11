@@ -6,18 +6,13 @@
 
 package de.leanovate.akka.fastcgi
 
-import de.leanovate.akka.iteratee.tcp.DataSink
+import de.leanovate.akka.iteratee.tcp.PMStream
 import akka.util.ByteString
 
-class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, body: DataSink[ByteString]) extends DataSink[ByteString] {
+class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, body: PMStream[ByteString])
+  extends PMStream[ByteString] {
 
-  sealed trait State {
-    def sendChunk(data: ByteString)
-
-    def sendEOF()
-  }
-
-  class ExtractHeadersState extends State {
+  class ExtractHeadersState extends PMStream[ByteString] {
     var buffer = ByteString.empty
 
     val lines = Seq.newBuilder[(String, String)]
@@ -26,12 +21,13 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
 
     var statusLine = "OK"
 
-    override def sendChunk(data: ByteString) = {
+    override def sendChunk(data: ByteString, resume: () => Unit) = {
 
       buffer ++= data
       var idx = buffer.indexOf('\n')
+      var done = false
 
-      while (idx >= 0) {
+      while (idx >= 0 && !done) {
         val line = if (idx > 0 && buffer(idx - 1) == '\r') {
           buffer.take(idx - 1)
         } else {
@@ -40,13 +36,15 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
         buffer = buffer.drop(idx + 1)
         idx = buffer.indexOf('\n')
         if (line.isEmpty) {
-          state = new PassThruState()
+          state = body
           headers(statusCode, statusLine, lines.result())
           if (!buffer.isEmpty) {
-            body.sendChunk(buffer)
+            body.sendChunk(buffer, resume)
             buffer = ByteString.empty
+          } else {
+            resume()
           }
-          idx = -1
+          done = true
         } else {
           val delimIdx = line.indexOf(':')
           if (delimIdx >= 0) {
@@ -67,6 +65,9 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
           }
         }
       }
+      if (!done) {
+        resume()
+      }
     }
 
     override def sendEOF() = {
@@ -76,15 +77,9 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
     }
   }
 
-  class PassThruState extends State {
-    override def sendChunk(data: ByteString) = body.sendChunk(data)
+  var state: PMStream[ByteString] = new ExtractHeadersState
 
-    override def sendEOF() = body.sendEOF()
-  }
-
-  var state: State = new ExtractHeadersState
-
-  override def sendChunk(data: ByteString) = state.sendChunk(data)
+  override def sendChunk(data: ByteString, resume: () => Unit) = state.sendChunk(data, resume)
 
   override def sendEOF() = state.sendEOF()
 }
