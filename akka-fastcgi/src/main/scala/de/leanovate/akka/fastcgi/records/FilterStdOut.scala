@@ -12,16 +12,16 @@ import akka.util.ByteString
 class FilterStdOut(stderr: ByteString => Unit, target: PMStream[ByteString]) extends PMStream[FCGIRecord] {
   var done = false
 
-  override def sendChunk(data: FCGIRecord, resume: () => Unit) = if (!done) {
+  override def sendChunk(data: FCGIRecord, ctrl: PMStream.Control) = if (!done) {
     data match {
       case FCGIStdOut(_, content) =>
-        target.sendChunk(content, resume)
+        target.sendChunk(content, ctrl)
       case FCGIStdErr(_, content) =>
         stderr(content)
-        resume()
+        ctrl.resume()
       case _: FCGIEndRequest =>
         sendEOF()
-        resume()
+        ctrl.resume()
     }
   }
 

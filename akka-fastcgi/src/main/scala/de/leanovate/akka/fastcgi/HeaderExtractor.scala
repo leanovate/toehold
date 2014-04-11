@@ -21,7 +21,7 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
 
     var statusLine = "OK"
 
-    override def sendChunk(data: ByteString, resume: () => Unit) = {
+    override def sendChunk(data: ByteString, ctrl: PMStream.Control) = {
 
       buffer ++= data
       var idx = buffer.indexOf('\n')
@@ -39,10 +39,10 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
           state = body
           headers(statusCode, statusLine, lines.result())
           if (!buffer.isEmpty) {
-            body.sendChunk(buffer, resume)
+            body.sendChunk(buffer, ctrl)
             buffer = ByteString.empty
           } else {
-            resume()
+            ctrl.resume()
           }
           done = true
         } else {
@@ -66,7 +66,7 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
         }
       }
       if (!done) {
-        resume()
+        ctrl.resume()
       }
     }
 
@@ -79,7 +79,7 @@ class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit, bod
 
   var state: PMStream[ByteString] = new ExtractHeadersState
 
-  override def sendChunk(data: ByteString, resume: () => Unit) = state.sendChunk(data, resume)
+  override def sendChunk(data: ByteString, ctrl: PMStream.Control) = state.sendChunk(data, ctrl)
 
   override def sendEOF() = state.sendEOF()
 }

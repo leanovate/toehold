@@ -12,11 +12,11 @@ import de.leanovate.akka.iteratee.tcp.PMStream
 class BytesToFCGIRecords(target: PMStream[FCGIRecord]) extends PMStream[ByteString] {
   private var buffer = ByteString.empty
 
-  override def sendChunk(data: ByteString, resume: () => Unit) = {
+  override def sendChunk(data: ByteString, ctrl: PMStream.Control) = {
 
     buffer ++= data
     var extracted = FCGIRecord.decode(buffer)
-    val countdown = new PMStream.CountdownResumer(resume)
+    val countdown = new PMStream.CountdownResumer(ctrl)
     buffer = extracted._2
     while (extracted._1.isDefined) {
       countdown.increment()
@@ -24,7 +24,7 @@ class BytesToFCGIRecords(target: PMStream[FCGIRecord]) extends PMStream[ByteStri
       extracted = FCGIRecord.decode(buffer)
       buffer = extracted._2
     }
-    countdown()
+    countdown.resume()
   }
 
   override def sendEOF() = {
@@ -32,7 +32,7 @@ class BytesToFCGIRecords(target: PMStream[FCGIRecord]) extends PMStream[ByteStri
     var extracted = FCGIRecord.decode(buffer)
     buffer = extracted._2
     while (extracted._1.isDefined) {
-      target.sendChunk(extracted._1.get, () => {})
+      target.sendChunk(extracted._1.get, PMStream.EmptyControl)
       extracted = FCGIRecord.decode(buffer)
       buffer = extracted._2
     }
