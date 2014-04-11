@@ -1,10 +1,8 @@
 name := "akka-fastcgi"
 
-organization := "de.leanovate.toehold"
+Common.settings
 
-version := "0.0.1-SNAPSHOT"
-
-scalaVersion := "2.10.3"
+Common.publishSettings
 
 libraryDependencies ++= Seq(
     "de.leanovate.toehold" %% "akka-iteratee" % version.value,
@@ -13,3 +11,9 @@ libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "2.0" % "test",
     "commons-codec" % "commons-codec" % "1.7" % "test"
 )
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+
+publishTo := Some("Bintray Release" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
+
+aether.Aether.aetherPublishSettings
