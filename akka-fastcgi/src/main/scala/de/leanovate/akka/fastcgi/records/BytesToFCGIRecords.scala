@@ -7,8 +7,8 @@
 package de.leanovate.akka.fastcgi.records
 
 import akka.util.ByteString
-import de.leanovate.akka.iteratee.tcp.PMStream
-import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
 
 class BytesToFCGIRecords extends (Chunk[ByteString] => Seq[Chunk[FCGIRecord]]) {
   private var buffer = ByteString.empty

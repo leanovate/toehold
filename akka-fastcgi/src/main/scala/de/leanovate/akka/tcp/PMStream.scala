@@ -4,7 +4,7 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.iteratee.tcp
+package de.leanovate.akka.tcp
 
 import java.util.concurrent.atomic.AtomicInteger
 
