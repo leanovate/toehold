@@ -7,7 +7,6 @@
 package de.leanovate.akka.fastcgi.records
 
 import akka.util.ByteString
-import de.leanovate.akka.iteratee.tcp.RawWriter
 
 trait FCGIRecord {
   def id: Int
@@ -26,10 +25,8 @@ trait FCGIRecord {
                          ) ++ content
 }
 
-object FCGIRecord extends RawWriter[FCGIRecord] {
+object FCGIRecord {
   val FCGI_VERSION = 1.toByte
-
-  override def write(a: FCGIRecord) = a.encode
 
   def decode(data: ByteString): (Option[FCGIRecord], ByteString) = {
 

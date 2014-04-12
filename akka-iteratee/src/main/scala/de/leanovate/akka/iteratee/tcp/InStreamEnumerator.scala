@@ -4,8 +4,9 @@ import akka.util.ByteString
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import akka.actor.ActorRef
+import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk, Control}
 
-class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: ExecutionContext)
+class InStreamEnumerator(implicit client: ActorRef, ctx: ExecutionContext)
   extends Enumerator[ByteString] with PMStream[ByteString] {
   private val initialIteratee = Promise[Iteratee[ByteString, _]]()
 
@@ -13,14 +14,14 @@ class InStreamEnumerator(connection: ActorRef)(implicit client: ActorRef, ctx: E
 
   private var currentIteratee = initialIteratee.future
 
-  override def sendChunk(data: ByteString, ctrl: PMStream.Control) {
+  override def send(chunk: Chunk[ByteString], ctrl: Control) {
 
-    feed(Input.El(data), ctrl)
-  }
-
-  override def sendEOF() {
-
-    resultIteratee.completeWith(feed(Input.EOF, PMStream.EmptyControl))
+    chunk match {
+      case Data(data) =>
+        feed(Input.El(data), ctrl)
+      case EOF =>
+        resultIteratee.completeWith(feed(Input.EOF, PMStream.EmptyControl))
+    }
   }
 
   private def feed(input: Input[ByteString], ctrl: PMStream.Control): Future[Iteratee[ByteString, _]] = {
