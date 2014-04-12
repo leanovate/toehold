@@ -8,11 +8,10 @@ package de.leanovate.akka.iteratee.tcp
 
 import akka.actor.{Actor, ActorContext, ActorRef}
 import akka.util.ByteString
-import de.leanovate.akka.iteratee.tcp.PMStream.Control
+import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk, Control}
 import akka.io.Tcp
 import akka.io.Tcp.{Event, ConnectionClosed, Received}
 import akka.event.Logging
-import java.util.concurrent.atomic.AtomicReference
 
 class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean)
   (implicit context: ActorContext, self: ActorRef) {
@@ -31,7 +30,7 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
         // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
         connection ! Tcp.SuspendReading
 
-        inStream.sendChunk(data, ConnectionControll)
+        inStream.send(PMStream.Data(data), ConnectionControll)
       case WriteAck =>
         if (log.isDebugEnabled) {
           log.debug("Inner write ack")
@@ -42,7 +41,7 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
         if (log.isDebugEnabled) {
           log.debug(s"Connection closed: $c")
         }
-        inStream.sendEOF()
+        inStream.send(PMStream.EOF, PMStream.EmptyControl)
         context stop self
     }
   }
@@ -62,28 +61,28 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
       }
     }
 
-    override def sendChunk(data: ByteString, ctrl: PMStream.Control) {
+    override def send(chunk: Chunk[ByteString], ctrl: Control) {
 
-      pending match {
-        case None =>
-          if (log.isDebugEnabled) {
-            log.debug(s"Writing chunk ${data.length}")
+      chunk match {
+        case Data(data) =>
+          pending match {
+            case None =>
+              if (log.isDebugEnabled) {
+                log.debug(s"Writing chunk ${data.length}")
+              }
+              pending = Some(ctrl)
+              connection ! Tcp.Write(data, WriteAck)
+            case _ =>
+              log.debug("Invoked sendChunk before resume")
+              ctrl.abort("Invoked sendChunk before resume")
           }
-          pending = Some(ctrl)
-          connection ! Tcp.Write(data, WriteAck)
-        case _ =>
-          log.debug("Invoked sendChunk before resume")
-          ctrl.abort("Invoked sendChunk before resume")
-      }
-    }
-
-    override def sendEOF() {
-
-      if (closeOnEof) {
-        if (log.isDebugEnabled) {
-          log.debug(s"Closing connection")
-        }
-        connection ! Tcp.Close
+        case EOF =>
+          if (closeOnEof) {
+            if (log.isDebugEnabled) {
+              log.debug(s"Closing connection")
+            }
+            connection ! Tcp.Close
+          }
       }
     }
   }

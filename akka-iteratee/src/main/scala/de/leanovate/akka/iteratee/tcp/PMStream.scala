@@ -15,25 +15,29 @@ import java.util.concurrent.atomic.AtomicInteger
  * Will most likely be removed once akka has its own reactive stream (which might happen with 2.4).
  */
 trait PMStream[A] {
+
+  import PMStream._
+
   /**
    * Send a chunk of data to the stream.
    *
    * For invokers:
-   *   a) Avoid re-calling this before the stream has given its ok via `ctrl.resumt()`
-   *   b) This method is not supposed to be thread-safe (i.e. chunks have a clearly defined order)
+   * a) Avoid re-calling this before the stream has given its ok via `ctrl.resumt()`
+   * b) This method is not supposed to be thread-safe (i.e. chunks have a clearly defined order)
    * For implementors:
-   *   a) Never ever perform a blocking operation,
-   *   b) ensure that you call `ctrl.resume()` once you are ready for the next chunk (either directly of asynchronously
+   * a) Never ever perform a blocking operation,
+   * b) ensure that you call `ctrl.resume()` once you are ready for the next chunk (either directly of asynchronously
    */
-  def sendChunk(data: A, ctrl: PMStream.Control)
-
-  /**
-   * Send an EOF to the stream (i.e. no more chunks are coming)
-   */
-  def sendEOF()
+  def send(chunk: Chunk[A], ctrl: Control)
 }
 
 object PMStream {
+
+  sealed trait Chunk[+A]
+
+  case class Data[A](data: A) extends Chunk[A]
+
+  case object EOF extends Chunk[Nothing]
 
   trait Control {
     def resume()
@@ -42,6 +46,7 @@ object PMStream {
   }
 
   class CountdownResumer(ctrl: Control) extends Control {
+    // Control may be invoked aynchronously, so we have to be atomic here
     private val counter = new AtomicInteger(1)
 
     def increment() = counter.incrementAndGet()

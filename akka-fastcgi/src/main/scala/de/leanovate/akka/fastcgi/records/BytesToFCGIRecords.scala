@@ -8,34 +8,36 @@ package de.leanovate.akka.fastcgi.records
 
 import akka.util.ByteString
 import de.leanovate.akka.iteratee.tcp.PMStream
+import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Control, Chunk}
 
-class BytesToFCGIRecords(target: PMStream[FCGIRecord]) extends PMStream[ByteString] {
+class BytesToFCGIRecords extends (Chunk[ByteString] => Seq[Chunk[FCGIRecord]]) {
   private var buffer = ByteString.empty
 
-  override def sendChunk(data: ByteString, ctrl: PMStream.Control) = {
+  override def apply(chunk: Chunk[ByteString]) = {
 
-    buffer ++= data
-    var extracted = FCGIRecord.decode(buffer)
-    val countdown = new PMStream.CountdownResumer(ctrl)
-    buffer = extracted._2
-    while (extracted._1.isDefined) {
-      countdown.increment()
-      target.sendChunk(extracted._1.get, countdown)
-      extracted = FCGIRecord.decode(buffer)
-      buffer = extracted._2
+    chunk match {
+      case Data(data) =>
+        buffer ++= data
+        val records = Seq.newBuilder[Chunk[FCGIRecord]]
+        var extracted = FCGIRecord.decode(buffer)
+        buffer = extracted._2
+        while (extracted._1.isDefined) {
+          records += Data(extracted._1.get)
+          extracted = FCGIRecord.decode(buffer)
+          buffer = extracted._2
+        }
+        records.result()
+      case EOF =>
+        val records = Seq.newBuilder[Chunk[FCGIRecord]]
+        var extracted = FCGIRecord.decode(buffer)
+        buffer = extracted._2
+        while (extracted._1.isDefined) {
+          records += Data(extracted._1.get)
+          extracted = FCGIRecord.decode(buffer)
+          buffer = extracted._2
+        }
+        records += EOF
+        records.result()
     }
-    countdown.resume()
-  }
-
-  override def sendEOF() = {
-
-    var extracted = FCGIRecord.decode(buffer)
-    buffer = extracted._2
-    while (extracted._1.isDefined) {
-      target.sendChunk(extracted._1.get, PMStream.EmptyControl)
-      extracted = FCGIRecord.decode(buffer)
-      buffer = extracted._2
-    }
-    target.sendEOF()
   }
 }

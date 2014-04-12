@@ -6,27 +6,40 @@
 
 package de.leanovate.akka.fastcgi.records
 
-import de.leanovate.akka.iteratee.tcp.PMStream
 import akka.util.ByteString
+import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk}
 
-class FilterStdOut(stderr: ByteString => Unit, target: PMStream[ByteString]) extends PMStream[FCGIRecord] {
+class FilterStdOut(stderr: ByteString => Unit)
+  extends (Chunk[FCGIRecord] => Seq[Chunk[ByteString]]) {
   var done = false
 
-  override def sendChunk(data: FCGIRecord, ctrl: PMStream.Control) = if (!done) {
-    data match {
-      case FCGIStdOut(_, content) =>
-        target.sendChunk(content, ctrl)
-      case FCGIStdErr(_, content) =>
-        stderr(content)
-        ctrl.resume()
-      case _: FCGIEndRequest =>
-        sendEOF()
-        ctrl.resume()
+  override def apply(chunk: Chunk[FCGIRecord]) =
+    chunk match {
+      case Data(data) =>
+        data match {
+          case FCGIStdOut(_, content) =>
+            if (!done) {
+              Seq(Data(content))
+            } else {
+              Seq.empty
+            }
+          case FCGIStdErr(_, content) =>
+            stderr(content)
+            Seq.empty
+          case _: FCGIEndRequest =>
+            if (!done) {
+              done = true
+              Seq(EOF)
+            } else {
+              Seq.empty
+            }
+        }
+      case EOF =>
+        if (!done) {
+          done = true
+          Seq(EOF)
+        } else {
+          Seq.empty
+        }
     }
-  }
-
-  override def sendEOF() = if (!done) {
-    done = true
-    target.sendEOF()
-  }
 }
