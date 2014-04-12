@@ -1,6 +1,7 @@
 import sbt._
 import sbt.Keys._
 import scala.Some
+import scala.Some
 
 object Common {
   val settings = Seq(
@@ -8,14 +9,14 @@ object Common {
 
                       version := "0.0.3-SNAPSHOT",
 
-                      scalaVersion := "2.10.3"
+                      scalaVersion := "2.10.3",
 
+                      publishTo :=
+                        Some("Bintray" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
                     )
 
   val publishSettings = Seq(
-                             credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+                             credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
 
-                             publishTo :=
-                               Some("Bintray" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
                            ) ++ aether.Aether.aetherPublishSettings
 }
