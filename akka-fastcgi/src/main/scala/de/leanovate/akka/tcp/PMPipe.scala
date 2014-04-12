@@ -1,7 +1,7 @@
-package de.leanovate.akka.iteratee.tcp
+package de.leanovate.akka.tcp
 
-import de.leanovate.akka.iteratee.tcp.PMStream._
-import de.leanovate.akka.iteratee.tcp.PMStream.Data
+import de.leanovate.akka.tcp.PMStream._
+import de.leanovate.akka.tcp.PMStream.Data
 
 trait PMPipe[From, To] {
   def |>(target: PMStream[To]): PMStream[From]

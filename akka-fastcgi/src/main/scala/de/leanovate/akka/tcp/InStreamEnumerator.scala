@@ -1,10 +1,10 @@
-package de.leanovate.akka.iteratee.tcp
+package de.leanovate.akka.tcp
 
 import akka.util.ByteString
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import akka.actor.ActorRef
-import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk, Control}
+import de.leanovate.akka.tcp.PMStream.{Control, EOF, Chunk, Data}
 
 class InStreamEnumerator(implicit client: ActorRef, ctx: ExecutionContext)
   extends Enumerator[ByteString] with PMStream[ByteString] {
@@ -24,7 +24,7 @@ class InStreamEnumerator(implicit client: ActorRef, ctx: ExecutionContext)
     }
   }
 
-  private def feed(input: Input[ByteString], ctrl: PMStream.Control): Future[Iteratee[ByteString, _]] = {
+  private def feed(input: Input[ByteString], ctrl: Control): Future[Iteratee[ByteString, _]] = {
 
     currentIteratee = currentIteratee.flatMap {
       it =>

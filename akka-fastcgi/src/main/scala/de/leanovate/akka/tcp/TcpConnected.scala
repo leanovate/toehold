@@ -4,14 +4,14 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.iteratee.tcp
+package de.leanovate.akka.tcp
 
 import akka.actor.{Actor, ActorContext, ActorRef}
 import akka.util.ByteString
-import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk, Control}
 import akka.io.Tcp
 import akka.io.Tcp.{Event, ConnectionClosed, Received}
 import akka.event.Logging
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
 
 class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean)
   (implicit context: ActorContext, self: ActorRef) {

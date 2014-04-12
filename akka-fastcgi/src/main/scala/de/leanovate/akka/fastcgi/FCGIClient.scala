@@ -5,8 +5,9 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, FCGIRecord}
-import de.leanovate.akka.iteratee.tcp.{PMPipe, TcpConnected, InStreamEnumerator, OutStreamAdapter}
+import de.leanovate.akka.tcp.{PMPipe, InStreamEnumerator, OutStreamAdapter}
 import akka.util.ByteString
+import de.leanovate.akka.tcp.TcpConnected
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
 
@@ -31,12 +32,12 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>
           handler.headerReceived(statusCode, statusLine, headers, in)
-      }, in)
-      val bytesToFCGIRecords =
+      })
+      val pipeline =
         PMPipe.flatMap(new BytesToFCGIRecords) |>
           PMPipe.flatMap(new FilterStdOut(stderrToLog)) |>
-          httpExtractor
-      val connected = new TcpConnected(sender, bytesToFCGIRecords, closeOnEof = false)
+          PMPipe.flatMap(httpExtractor) |> in
+      val connected = new TcpConnected(sender, pipeline, closeOnEof = false)
       val out = new OutStreamAdapter[FCGIRecord](PMPipe.map[FCGIRecord, ByteString](_.encode) |> connected.outStream)
       context become connected.state
       handler.connected(out.iterator)

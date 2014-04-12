@@ -7,7 +7,7 @@
 package de.leanovate.akka.fastcgi.records
 
 import akka.util.ByteString
-import de.leanovate.akka.iteratee.tcp.PMStream.{EOF, Data, Chunk}
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk}
 
 class FilterStdOut(stderr: ByteString => Unit)
   extends (Chunk[FCGIRecord] => Seq[Chunk[ByteString]]) {
