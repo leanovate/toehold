@@ -17,33 +17,35 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
   (implicit context: ActorContext, self: ActorRef) {
   val log = Logging(context.system, context.self)
 
-  def outStream: PMStream[ByteString] = OutPMStream
+  def becomeConnected: PMStream[ByteString] = {
 
-  val state: Actor.Receive = {
+    context become connected
+    OutPMStream
+  }
 
-    {
-      case Received(data) =>
-        if (log.isDebugEnabled) {
-          log.debug(s"Chunk: ${data.length} bytes")
-        }
-        // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
-        // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
-        connection ! Tcp.SuspendReading
+  def connected: Actor.Receive = {
 
-        inStream.send(PMStream.Data(data), ConnectionControll)
-      case WriteAck =>
-        if (log.isDebugEnabled) {
-          log.debug("Inner write ack")
-        }
+    case Received(data) =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Chunk: ${data.length} bytes")
+      }
+      // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
+      // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
+      connection ! Tcp.SuspendReading
 
-        OutPMStream.acknowledge()
-      case c: ConnectionClosed =>
-        if (log.isDebugEnabled) {
-          log.debug(s"Connection closed: $c")
-        }
-        inStream.send(PMStream.EOF, PMStream.EmptyControl)
-        context stop self
-    }
+      inStream.send(PMStream.Data(data), ConnectionControll)
+    case WriteAck =>
+      if (log.isDebugEnabled) {
+        log.debug("Inner write ack")
+      }
+
+      OutPMStream.acknowledge()
+    case c: ConnectionClosed =>
+      if (log.isDebugEnabled) {
+        log.debug(s"Connection closed: $c")
+      }
+      inStream.send(PMStream.EOF, PMStream.EmptyControl)
+      context stop self
   }
 
   private object OutPMStream extends PMStream[ByteString] {

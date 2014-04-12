@@ -1,11 +1,10 @@
 package de.leanovate.akka.tcp
 
-import akka.actor.ActorRef
 import scala.concurrent.Promise
 import play.api.libs.iteratee.{Done, Input, Cont, Iteratee}
 import de.leanovate.akka.tcp.PMStream.Control
 
-class OutStreamAdapter[A](target: PMStream[A])(implicit client: ActorRef) {
+class OutStreamAdapter[A](target: PMStream[A]) {
   def iterator = Cont[A, Unit](step)
 
   private def step(i: Input[A]): Iteratee[A, Unit] = i match {
