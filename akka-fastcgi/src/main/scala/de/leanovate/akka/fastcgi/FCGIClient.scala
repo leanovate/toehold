@@ -37,10 +37,8 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
         PMPipe.flatMap(new BytesToFCGIRecords) |>
           PMPipe.flatMap(new FilterStdOut(stderrToLog)) |>
           PMPipe.flatMap(httpExtractor) |> in
-      val connected = new TcpConnected(sender, pipeline, closeOnEof = false)
-      val out = new OutStreamAdapter[FCGIRecord](PMPipe.map[FCGIRecord, ByteString](_.encode) |> connected.outStream)
-      context become connected.state
-      handler.connected(out.iterator)
+      val outStream = new TcpConnected(sender, pipeline, closeOnEof = false).becomeConnected
+      handler.connected(PMPipe.map[FCGIRecord, ByteString](_.encode) |> outStream)
   }
 
   private def stderrToLog(stderr: ByteString) {

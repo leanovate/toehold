@@ -12,6 +12,7 @@ import play.api.libs.iteratee.{Iteratee, Enumerator}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
+import de.leanovate.akka.tcp.{PMStream, OutStreamAdapter}
 
 class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
 
@@ -31,9 +32,11 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
   private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
 
     val handler = new FCGIConnectionHandler {
-      override def connected(out: Iteratee[FCGIRecord, Unit]) = {
+      override def connected(outStream: PMStream[FCGIRecord]) = {
 
-        request.writeTo(1, out)
+        val out = new OutStreamAdapter[FCGIRecord](outStream)
+
+        request.writeTo(1, out.iterator)
       }
 
       override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
