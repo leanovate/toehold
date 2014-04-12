@@ -7,8 +7,6 @@ object Common {
   val settings = Seq(
                       organization := "de.leanovate.toehold",
 
-                      version := "0.0.3-SNAPSHOT",
-
                       scalaVersion := "2.10.3",
 
                       publishTo :=
