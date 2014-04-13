@@ -28,7 +28,7 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
 
     case Received(data) =>
       if (log.isDebugEnabled) {
-        log.debug(s"Chunk: ${data.length} bytes")
+        log.debug(s"Receive chunk: ${data.length} bytes")
       }
       // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
       // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
@@ -121,6 +121,9 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
   private object ConnectionControll extends Control {
     override def resume() {
 
+      if (log.isDebugEnabled) {
+        log.debug(s"Resome reading")
+      }
       connection ! Tcp.ResumeReading
     }
 

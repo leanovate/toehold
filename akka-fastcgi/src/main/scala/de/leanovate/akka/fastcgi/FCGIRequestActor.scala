@@ -8,11 +8,10 @@ package de.leanovate.akka.fastcgi
 
 import akka.actor._
 import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIResponderRequest}
-import play.api.libs.iteratee.Enumerator
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{IterateeAdapter, PMStream}
+import de.leanovate.akka.tcp.{EnumeratorAdapter, AttachablePMStream, IterateeAdapter, PMStream}
 
 class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
 
@@ -38,9 +37,9 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
       }
 
       override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-        in: Enumerator[ByteString]) = {
+        in: AttachablePMStream[ByteString]) = {
 
-        target ! FCGIResponderSuccess(statusCode, statusLine, headers, in)
+        target ! FCGIResponderSuccess(statusCode, statusLine, headers, EnumeratorAdapter.adapt(in))
       }
 
       override def connectionFailed() {

@@ -9,12 +9,12 @@ package de.leanovate.akka.fastcgi
 import play.api.libs.iteratee.{Enumerator, Iteratee}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.util.ByteString
-import de.leanovate.akka.tcp.PMStream
+import de.leanovate.akka.tcp.{AttachablePMStream, PMStream}
 
 trait FCGIConnectionHandler {
   def connected(out: PMStream[FCGIRecord])
 
-  def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)], in: Enumerator[ByteString])
+  def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)], in: AttachablePMStream[ByteString])
 
   def connectionFailed()
 

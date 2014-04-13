@@ -5,14 +5,12 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, FCGIRecord}
-import de.leanovate.akka.tcp.{PMPipe, InStreamEnumerator}
+import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnected}
 import akka.util.ByteString
-import de.leanovate.akka.tcp.TcpConnected
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
 
   import context.system
-  import context.dispatcher
 
   IO(Tcp) ! Connect(remote)
 
@@ -28,7 +26,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
         log.debug(s"Connected $remoteAddress -> $localAddress")
       }
       sender ! Register(self)
-      val in = new InStreamEnumerator
+      val in = new AttachablePMStream[ByteString]
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>
           handler.headerReceived(statusCode, statusLine, headers, in)
