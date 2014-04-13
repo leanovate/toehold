@@ -10,9 +10,10 @@ trait PMPipe[From, To] {
 }
 
 object PMPipe {
-  def map[From, To](f: From => To) = new  PMPipe[From, To] {
+  def map[From, To](f: From => To) = new PMPipe[From, To] {
     override def |>(target: PMStream[To]) = new PMStream[From] {
       override def send(chunk: Chunk[From], ctrl: Control) = {
+
         chunk match {
           case Data(data) =>
             target.send(Data(f(data)), ctrl)
@@ -27,14 +28,7 @@ object PMPipe {
     override def |>(target: PMStream[To]) = new PMStream[From] {
       override def send(chunk: Chunk[From], ctrl: Control) = {
 
-        val countdown = new CountdownResumer(ctrl)
-
-        f(chunk).foreach {
-          out =>
-            countdown.increment()
-            target.send(out, countdown)
-        }
-        countdown.resume()
+        target.send(f(chunk), ctrl)
       }
     }
   }

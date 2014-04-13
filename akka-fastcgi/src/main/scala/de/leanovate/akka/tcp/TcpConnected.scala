@@ -12,6 +12,7 @@ import akka.io.Tcp
 import akka.io.Tcp.{Event, ConnectionClosed, Received}
 import akka.event.Logging
 import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
+import scala.concurrent.stm._
 
 class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean)
   (implicit context: ActorContext, self: ActorRef) {
@@ -49,42 +50,70 @@ class TcpConnected(connection: ActorRef, inStream: PMStream[ByteString], closeOn
   }
 
   private object OutPMStream extends PMStream[ByteString] {
-    private var pending: Option[PMStream.Control] = None
+    private val pending = Ref[Option[(Seq[Chunk[ByteString]], Control)]](None)
 
     def acknowledge() {
 
-      pending.foreach {
-        ctrl =>
+      def takeChunk(state: Option[(Seq[Chunk[ByteString]], Control)]): Option[(Seq[Chunk[ByteString]], Control)] =
+        state match {
+          case Some((chunks, _)) if chunks.isEmpty =>
+            None
+          case Some((chunks, ctrl)) =>
+            Some(chunks.take(1), ctrl)
+          case None =>
+            None
+        }
+      pending.single.getAndTransform(takeChunk) match {
+        case None =>
+          log.error("Write ack without pending")
+        case Some((chunks, ctrl)) if chunks.isEmpty =>
           if (log.isDebugEnabled) {
             log.debug("Resume out stream")
           }
-          pending = None
           ctrl.resume()
+        case Some((chunks, _)) =>
+          chunks.head match {
+            case Data(data) =>
+              if (log.isDebugEnabled) {
+                log.debug(s"Writing chunk ${data.length}")
+              }
+              connection ! Tcp.Write(data, WriteAck)
+            case EOF if closeOnEof =>
+              if (log.isDebugEnabled) {
+                log.debug(s"Closing connection")
+              }
+              connection ! Tcp.Close
+            case EOF =>
+          }
       }
     }
 
     override def send(chunk: Chunk[ByteString], ctrl: Control) {
 
-      chunk match {
-        case Data(data) =>
-          pending match {
-            case None =>
+      def appendChunk(state: Option[(Seq[Chunk[ByteString]], Control)]): Option[(Seq[Chunk[ByteString]], Control)] =
+        state match {
+          case Some((chunks, _)) =>
+            Some(chunks :+ chunk, ctrl)
+          case None =>
+            Some(Seq.empty, ctrl)
+        }
+
+      pending.single.getAndTransform(appendChunk) match {
+        case None =>
+          chunk match {
+            case Data(data) =>
               if (log.isDebugEnabled) {
                 log.debug(s"Writing chunk ${data.length}")
               }
-              pending = Some(ctrl)
               connection ! Tcp.Write(data, WriteAck)
-            case _ =>
-              log.debug("Invoked sendChunk before resume")
-              ctrl.abort("Invoked sendChunk before resume")
+            case EOF if closeOnEof =>
+              if (log.isDebugEnabled) {
+                log.debug(s"Closing connection")
+              }
+              connection ! Tcp.Close
+            case EOF =>
           }
-        case EOF =>
-          if (closeOnEof) {
-            if (log.isDebugEnabled) {
-              log.debug(s"Closing connection")
-            }
-            connection ! Tcp.Close
-          }
+        case _ =>
       }
     }
   }

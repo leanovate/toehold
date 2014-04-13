@@ -29,6 +29,29 @@ trait PMStream[A] {
    * b) ensure that you call `ctrl.resume()` once you are ready for the next chunk (either directly of asynchronously
    */
   def send(chunk: Chunk[A], ctrl: Control)
+
+  def send(chunks: Seq[Chunk[A]], ctrl: Control) {
+
+    if (chunks.isEmpty) {
+      ctrl.resume()
+    }
+    else {
+      val it = chunks.iterator
+      while (it.hasNext) {
+        val chunk = it.next()
+
+        if (it.hasNext) {
+          send(chunk, new Control {
+            override def resume() {}
+
+            override def abort(msg: String) = ctrl.abort(msg)
+          })
+        } else {
+          send(chunk, ctrl)
+        }
+      }
+    }
+  }
 }
 
 object PMStream {
@@ -45,29 +68,9 @@ object PMStream {
     def abort(msg: String)
   }
 
-  class CountdownResumer(ctrl: Control) extends Control {
-    // Control may be invoked aynchronously, so we have to be atomic here
-    private val counter = new AtomicInteger(1)
-
-    def increment() = counter.incrementAndGet()
-
-    override def resume() {
-
-      if (counter.decrementAndGet() <= 0) {
-        ctrl.resume()
-      }
-    }
-
-    override def abort(msg: String) {
-
-      ctrl.abort(msg: String)
-    }
-  }
-
   object EmptyControl extends Control {
     override def resume() {}
 
     override def abort(msg: String) {}
   }
-
 }
