@@ -34,8 +34,7 @@ trait PMStream[A] {
 
     if (chunks.isEmpty) {
       ctrl.resume()
-    }
-    else {
+    } else {
       val it = chunks.iterator
       while (it.hasNext) {
         val chunk = it.next()
@@ -73,4 +72,5 @@ object PMStream {
 
     override def abort(msg: String) {}
   }
+
 }
