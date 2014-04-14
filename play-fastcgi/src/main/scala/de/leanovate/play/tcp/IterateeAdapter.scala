@@ -4,11 +4,12 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.tcp
+package de.leanovate.play.tcp
 
 import play.api.libs.iteratee.{Cont, Done, Iteratee, Input}
 import scala.concurrent.Promise
 import de.leanovate.akka.tcp.PMStream.{EmptyControl, EOF, Control, Data}
+import de.leanovate.akka.tcp.PMStream
 
 object IterateeAdapter {
   def adapt[A](target:PMStream[A]): Iteratee[A, Unit] ={

@@ -7,7 +7,6 @@
 package de.leanovate.akka.fastcgi.request
 
 import akka.util.ByteString
-import play.api.libs.iteratee.Enumerator
 import de.leanovate.akka.tcp.AttachablePMStream
 
 sealed trait FCGIResponderResponse

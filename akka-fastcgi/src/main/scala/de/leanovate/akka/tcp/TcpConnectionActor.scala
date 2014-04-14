@@ -17,6 +17,8 @@ import java.net.InetSocketAddress
 
 /**
  * Helper for the connected state of an actor doing some sort of tcp communication.
+ *
+ * All the back-pressure handling happens here.
  */
 trait TcpConnectionActor extends ActorLogging {
   actor: Actor =>

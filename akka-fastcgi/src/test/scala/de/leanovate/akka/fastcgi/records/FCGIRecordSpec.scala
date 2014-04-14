@@ -6,7 +6,7 @@
 
 package de.leanovate.akka.fastcgi.records
 
-import org.scalatest.{FunSpec, Matchers, FlatSpec}
+import org.scalatest.{FunSpec, Matchers}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 

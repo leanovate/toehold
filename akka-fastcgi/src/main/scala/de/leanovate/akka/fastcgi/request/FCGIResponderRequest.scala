@@ -6,14 +6,13 @@
 
 package de.leanovate.akka.fastcgi.request
 
-import play.api.libs.iteratee.{Enumeratee, Iteratee, Enumerator}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.records._
 import de.leanovate.akka.fastcgi.records.FCGIParams
 import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
 import scala.concurrent.ExecutionContext
-import de.leanovate.akka.tcp.{IterateeAdapter, PMStream}
-import de.leanovate.akka.tcp.PMStream.{Data, EmptyControl}
+import de.leanovate.akka.tcp.PMStream
+import de.leanovate.akka.fastcgi.framing.Framing
 
 case class FCGIResponderRequest(
   method: String,
@@ -55,9 +54,7 @@ case class FCGIResponderRequest(
     out.push(beginRquest, params, FCGIParams(id, Seq.empty))
     optContent.map {
       content =>
-        val contentIteratee = IterateeAdapter.adapt(out)
-        content.dataProvider(Enumeratee.map[Array[Byte]](ByteString(_))
-          .transform(Framing.toFCGIStdin(id).transform(contentIteratee)))
+        content.stream.attach(Framing.toFCGIStdin(id) |> out)
     }.getOrElse {
       out.push(FCGIStdin(id, ByteString.empty))
     }

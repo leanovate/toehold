@@ -11,14 +11,16 @@ import play.api.libs.concurrent.Akka
 import play.api.Play.current
 import play.api.Play.configuration
 import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
-import akka.util.Timeout
+import akka.util.{ByteString, Timeout}
 import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.duration._
 import play.api.libs.iteratee.Iteratee
 import scala.Some
 import scala.concurrent.Promise
 import akka.pattern.ask
-import de.leanovate.play.tcp.EnumeratorAdapter
+import de.leanovate.play.tcp.{IterateeAdapter, EnumeratorAdapter}
+import de.leanovate.akka.tcp.AttachablePMStream
+import de.leanovate.akka.fastcgi.framing.Framing
 
 object FastCGIController extends Controller {
   implicit val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
@@ -32,13 +34,8 @@ object FastCGIController extends Controller {
         contentType =>
           requestHeader.headers.get("content-length").map {
             contentLength =>
-              val p = Promise[Iteratee[Array[Byte], Any]]()
-              val requestContent = FCGIRequestContent(
-              contentType,
-              contentLength.toLong, {
-                it =>
-                  p.success(it)
-              })
+              val requestContentStream = new AttachablePMStream[ByteString]
+              val requestContent = FCGIRequestContent(contentType, contentLength.toLong, requestContentStream)
               val request = FCGIResponderRequest(
                                                   requestHeader.method,
                                                   "/" + path + extension,
@@ -50,13 +47,13 @@ object FastCGIController extends Controller {
               val resultPromise = Promise[SimpleResult]()
               (fastCGIActor ? request).map {
                 case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                  val contentEnum =  EnumeratorAdapter.adapt(content).map(_.toArray)
+                  val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
                   resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum))
                 case FCGIResponderError(msg) =>
                   resultPromise.success(InternalServerError(msg))
               }
 
-              Iteratee.flatten(p.future).mapM {
+              IterateeAdapter.adapt(Framing.byteArrayToByteString |> requestContentStream).mapM {
                 _ =>
                   resultPromise.future
               }
@@ -79,7 +76,7 @@ object FastCGIController extends Controller {
           _ =>
             (fastCGIActor ? request).map {
               case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                val contentEnum =  EnumeratorAdapter.adapt(content).map(_.toArray)
+                val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
                 SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
               case FCGIResponderError(msg) =>
                 InternalServerError(msg)

@@ -8,6 +8,11 @@ package de.leanovate.akka.tcp
 
 import de.leanovate.akka.tcp.PMStream.{EmptyControl, Control, Chunk}
 
+/**
+ * Not yet attached stream.
+ *
+ * All incoming chunks will be buffered white the stream is unattached.
+ */
 case class AttachablePMStream[A]() extends PMStream[A] {
   @volatile
   private var target: PMStream[A] = null
@@ -22,11 +27,11 @@ case class AttachablePMStream[A]() extends PMStream[A] {
       target.send(chunk, ctrl)
     }
     else {
+      // this is not supposed to run below java 1.5, so double-check is ok
       synchronized {
         if (target ne null) {
           target.send(chunk, ctrl)
-        }
-        else {
+        } else {
           chunks += chunk
           lastCtrl = ctrl
         }
@@ -38,6 +43,7 @@ case class AttachablePMStream[A]() extends PMStream[A] {
 
     synchronized {
       _target.send(chunks.result(), lastCtrl)
+      chunks.clear()
       target = _target
     }
   }

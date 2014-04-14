@@ -9,8 +9,6 @@ package de.leanovate.akka.fastcgi.records
 import org.scalatest.{Matchers, FunSpec}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
-import play.api.libs.iteratee.Iteratee
-import scala.concurrent.duration._
 
 class BytesToFCGIRecordSpec extends FunSpec with Matchers {
   describe("BytesToFCGIRecords") {
