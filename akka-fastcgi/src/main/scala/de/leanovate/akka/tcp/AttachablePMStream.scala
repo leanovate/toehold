@@ -6,7 +6,7 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMStream.{EmptyControl, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream.{NoControl, Control, Chunk}
 
 /**
  * Not yet attached stream.
@@ -19,7 +19,7 @@ case class AttachablePMStream[A]() extends PMStream[A] {
 
   private val chunks = Seq.newBuilder[Chunk[A]]
 
-  private var lastCtrl: Control = EmptyControl
+  private var lastCtrl: Control = NoControl
 
   override def send(chunk: Chunk[A], ctrl: Control) {
 

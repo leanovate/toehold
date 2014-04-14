@@ -8,7 +8,7 @@ package de.leanovate.play.tcp
 
 import play.api.libs.iteratee.{Cont, Done, Iteratee, Input}
 import scala.concurrent.Promise
-import de.leanovate.akka.tcp.PMStream.{EmptyControl, EOF, Control, Data}
+import de.leanovate.akka.tcp.PMStream.{NoControl, EOF, Control, Data}
 import de.leanovate.akka.tcp.PMStream
 
 object IterateeAdapter {
@@ -17,7 +17,7 @@ object IterateeAdapter {
     def step(i: Input[A]): Iteratee[A, Unit] = i match {
 
       case Input.EOF =>
-        target.send(EOF, EmptyControl)
+        target.send(EOF, NoControl)
         Done(Unit, Input.EOF)
       case Input.Empty =>
         Cont[A, Unit](step)
