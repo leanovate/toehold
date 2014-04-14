@@ -11,14 +11,16 @@ object Common {
 
                       publishTo := {
                         val nexus = "https://oss.sonatype.org/"
-                        if (version.value.trim.endsWith("SNAPSHOT"))
+                        if (version.value.trim.endsWith("SNAPSHOT")) {
                           Some("Sonatype Nexus Repository Manager" at nexus + "content/repositories/snapshots")
-                        else
-                          Some("Sonatype Nexus Repository Manager"  at nexus + "service/local/staging/deploy/maven2")
+                        }
+                        else {
+                          Some("Sonatype Nexus Repository Manager" at nexus + "service/local/staging/deploy/maven2")
+                        }
                       }
-//                        publishTo :=
-//                        Some("Bintray" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
-                    )
+                      //                        publishTo :=
+                      //                        Some("Bintray" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
+                    ) ++ com.typesafe.sbt.SbtPgp.settings
 
   val publishSettings = Seq(
                              credentials += Credentials(Path.userHome / ".ivy2" / ".credentials-sonatype")
