@@ -1,7 +1,6 @@
 import sbt._
 import sbt.Keys._
-import scala.Some
-import scala.Some
+import xerial.sbt.Sonatype.SonatypeKeys._
 
 object Common {
   val settings = Seq(
@@ -9,21 +8,33 @@ object Common {
 
                       scalaVersion := "2.10.3",
 
-                      publishTo := {
-                        val nexus = "https://oss.sonatype.org/"
-                        if (version.value.trim.endsWith("SNAPSHOT")) {
-                          Some("Sonatype Nexus Repository Manager" at nexus + "content/repositories/snapshots")
-                        }
-                        else {
-                          Some("Sonatype Nexus Repository Manager" at nexus + "service/local/staging/deploy/maven2")
-                        }
+                      profileName := "de.leanovate",
+
+                      pomExtra := {
+                        <url>https://github.com/leanovate/toehold</url>
+                          <licenses>
+                            <license>
+                              <name>MIT</name>
+                              <url>http://opensource.org/licenses/MIT</url>
+                            </license>
+                          </licenses>
+                          <scm>
+                            <connection>scm:git:github.com/leanovate/toehold</connection>
+                            <developerConnection>scm:git:git@github.com:/leanovate/toehold</developerConnection>
+                            <url>github.com/leanovate/toehold</url>
+                          </scm>
+                          <developers>
+                            <developer>
+                              <id>untoldwind</id>
+                              <name>Bodo Junglas</name>
+                              <url>http://untoldwind.github.io/</url>
+                            </developer>
+                          </developers>
                       }
-                      //                        publishTo :=
-                      //                        Some("Bintray" at "https://api.bintray.com/maven/untoldwind/maven/toehold")
-                    ) ++ com.typesafe.sbt.SbtPgp.settings
+                    ) ++ xerial.sbt.Sonatype.sonatypeSettings ++ com.typesafe.sbt.SbtPgp.settings
 
   val publishSettings = Seq(
                              credentials += Credentials(Path.userHome / ".ivy2" / ".credentials-sonatype")
 
-                           ) ++ aether.Aether.aetherPublishSettings
+                           )
 }
