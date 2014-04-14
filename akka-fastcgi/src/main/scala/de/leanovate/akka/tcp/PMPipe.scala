@@ -30,6 +30,12 @@ object PMPipe {
     }
   }
 
+  def mapChunk[From, To](f: Chunk[From] => Chunk[To]) = new PMPipe[From, To] {
+    override def |>(target: PMStream[To]) = new PMStream[From] {
+      override def send(chunk: Chunk[From], ctrl: Control) = target.send(f(chunk), ctrl)
+    }
+  }
+
   def flatMap[From, To](f: Chunk[From] => Seq[Chunk[To]]) = new PMPipe[From, To] {
     override def |>(target: PMStream[To]) = new PMStream[From] {
       override def send(chunk: Chunk[From], ctrl: Control) = {

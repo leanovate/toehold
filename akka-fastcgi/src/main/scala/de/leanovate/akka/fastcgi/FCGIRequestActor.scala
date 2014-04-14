@@ -11,7 +11,7 @@ import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderErr
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{AttachablePMStream, IterateeAdapter, PMStream}
+import de.leanovate.akka.tcp.{AttachablePMStream, PMStream}
 
 class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
 

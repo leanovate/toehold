@@ -4,11 +4,10 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.fastcgi
+package de.leanovate.akka.fastcgi.framing
 
-import de.leanovate.akka.tcp.PMStream
 import akka.util.ByteString
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk}
 
 class HeaderExtractor(headers: (Int, String, Seq[(String, String)]) => Unit)
   extends (Chunk[ByteString] => Seq[Chunk[ByteString]]) {

@@ -4,13 +4,13 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.fastcgi.records
+package de.leanovate.akka.fastcgi.framing
 
 import akka.util.ByteString
 import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk}
+import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdErr, FCGIStdOut, FCGIRecord}
 
-class FilterStdOut(stderr: ByteString => Unit)
-  extends (Chunk[FCGIRecord] => Seq[Chunk[ByteString]]) {
+class FilterStdOut(stderr: ByteString => Unit) extends (Chunk[FCGIRecord] => Seq[Chunk[ByteString]]) {
   var done = false
 
   override def apply(chunk: Chunk[FCGIRecord]) =

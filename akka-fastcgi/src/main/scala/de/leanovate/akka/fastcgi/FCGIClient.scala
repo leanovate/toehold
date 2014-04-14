@@ -4,9 +4,10 @@ import akka.actor.{Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
-import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.FCGIRecord
 import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectionActor}
 import akka.util.ByteString
+import de.leanovate.akka.fastcgi.framing.{HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectionActor {
 

@@ -6,15 +6,14 @@
 
 package de.leanovate.akka.fastcgi.request
 
-import play.api.libs.iteratee.{Iteratee, Enumerator}
 import akka.util.ByteString
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.ExecutionContext
 import de.leanovate.akka.tcp.AttachablePMStream
 
 case class FCGIRequestContent(
   mimeType: String,
   length: Long,
-  dataProvider: Iteratee[Array[Byte], _] => Unit
+  stream: AttachablePMStream[ByteString]
   )
 
 object FCGIRequestContent {
@@ -22,9 +21,8 @@ object FCGIRequestContent {
 
     val data = ByteString(str)
 
-    FCGIRequestContent(mimeType, data.length, {
-      it =>
-        Enumerator(data.toArray) |>>> it
-    })
+    val content = new AttachablePMStream[ByteString]
+    content.push(data)
+    FCGIRequestContent(mimeType, data.length, content)
   }
 }

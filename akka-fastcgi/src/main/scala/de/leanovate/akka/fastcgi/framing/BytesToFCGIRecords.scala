@@ -4,11 +4,11 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.fastcgi.records
+package de.leanovate.akka.fastcgi.framing
 
 import akka.util.ByteString
-import de.leanovate.akka.tcp.PMStream
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk}
+import de.leanovate.akka.fastcgi.records.FCGIRecord
 
 class BytesToFCGIRecords extends (Chunk[ByteString] => Seq[Chunk[FCGIRecord]]) {
   private var buffer = ByteString.empty
