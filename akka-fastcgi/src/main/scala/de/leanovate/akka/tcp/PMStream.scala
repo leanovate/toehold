@@ -6,8 +6,6 @@
 
 package de.leanovate.akka.tcp
 
-import java.util.concurrent.atomic.AtomicInteger
-
 /**
  * Pull-mode stream (aka poor man's "reactive" streaming).
  *
@@ -30,6 +28,12 @@ trait PMStream[A] {
    */
   def send(chunk: Chunk[A], ctrl: Control)
 
+  /**
+   * Send a sequence of chunks.
+   *
+   * THis might happen during framing/un-framing. If you already have a sequence of chunks in memory you have to get
+   * rid of them somehow.
+   */
   def send(chunks: Seq[Chunk[A]], ctrl: Control) {
 
     if (chunks.isEmpty) {
@@ -50,6 +54,15 @@ trait PMStream[A] {
         }
       }
     }
+  }
+
+  /**
+   * Push some data to the stream.
+   *
+   * Note: This does not have any form of back-pressure handling. Use with care.
+   */
+  def push(data: A*) {
+    send(data.map(Data.apply), EmptyControl)
   }
 }
 
