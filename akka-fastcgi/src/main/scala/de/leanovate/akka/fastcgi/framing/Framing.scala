@@ -21,4 +21,7 @@ object Framing {
       Data(FCGIStdin(id, ByteString.empty))
   }
 
+  def bytesToFCGIRecords = PMPipe.flatMapChunk(new BytesToFCGIRecords)
+
+  def filterStdOut(stderr: ByteString => Unit) = PMPipe.flatMapChunk(new FilterStdOut(stderr))
 }

@@ -11,6 +11,11 @@ package de.leanovate.akka.tcp
  *
  * This is most certainly not the best api for this kind of task, it is just supposed to avoid Future-cascades.
  * Will most likely be removed once akka has its own reactive stream (which might happen with 2.4).
+ *
+ * You might ask: Why is this called pull-mode when there is a `push` method?
+ * The idea is that the stream should always ba able to react to IO events, but has control when the input should be
+ * resumed. In return this implies that the IO manager should suspend all further reading until the stream decides to
+ * resume.
  */
 trait PMStream[A] {
 
@@ -62,7 +67,7 @@ trait PMStream[A] {
    * Note: This does not have any form of back-pressure handling. Use with care.
    */
   def push(data: A*) {
-    send(data.map(Data.apply), EmptyControl)
+    send(data.map(Data.apply), NoControl)
   }
 }
 
@@ -80,7 +85,7 @@ object PMStream {
     def abort(msg: String)
   }
 
-  object EmptyControl extends Control {
+  object NoControl extends Control {
     override def resume() {}
 
     override def abort(msg: String) {}

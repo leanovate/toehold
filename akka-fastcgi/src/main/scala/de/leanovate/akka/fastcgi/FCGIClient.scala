@@ -7,7 +7,7 @@ import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectionActor}
 import akka.util.ByteString
-import de.leanovate.akka.fastcgi.framing.{HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
+import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 
 class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectionActor {
 
@@ -33,9 +33,9 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
           handler.headerReceived(statusCode, statusLine, headers, in)
       })
       val pipeline =
-        PMPipe.flatMap(new BytesToFCGIRecords) |>
-          PMPipe.flatMap(new FilterStdOut(stderrToLog)) |>
-          PMPipe.flatMap(httpExtractor) |> in
+        Framing.bytesToFCGIRecords |>
+          Framing.filterStdOut(stderrToLog) |>
+          PMPipe.flatMapChunk(httpExtractor) |> in
       val outStream = becomeConnected(remoteAddress, localAddress, sender, pipeline, closeOnEof = false)
       handler.connected(PMPipe.map[FCGIRecord, ByteString](_.encode) |> outStream)
   }

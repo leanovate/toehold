@@ -51,7 +51,7 @@ trait TcpConnectionActor extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress connection closed: $c")
         }
-        inStream.send(PMStream.EOF, PMStream.EmptyControl)
+        inStream.send(PMStream.EOF, PMStream.NoControl)
         context stop self
     }
 
