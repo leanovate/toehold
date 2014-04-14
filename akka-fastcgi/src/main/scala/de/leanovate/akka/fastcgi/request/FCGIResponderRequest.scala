@@ -12,6 +12,8 @@ import de.leanovate.akka.fastcgi.records._
 import de.leanovate.akka.fastcgi.records.FCGIParams
 import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
 import scala.concurrent.ExecutionContext
+import de.leanovate.akka.tcp.{IterateeAdapter, PMStream}
+import de.leanovate.akka.tcp.PMStream.{Data, EmptyControl}
 
 case class FCGIResponderRequest(
   method: String,
@@ -22,7 +24,7 @@ case class FCGIResponderRequest(
   optContent: Option[FCGIRequestContent]
   ) {
 
-  def writeTo(id: Int, out: Iteratee[FCGIRecord, Any])(implicit ctx: ExecutionContext) {
+  def writeTo(id: Int, out: PMStream[FCGIRecord])(implicit ctx: ExecutionContext) {
 
     val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive = false)
     val params = FCGIParams(id, (
@@ -50,15 +52,14 @@ case class FCGIResponderRequest(
         }.toSeq
       ).map(e => ByteString(e._1) -> ByteString(e._2)))
 
-    (Enumerator[FCGIRecord](beginRquest, params, FCGIParams(id, Seq.empty)) |>> out).foreach {
-      nextOut =>
-        optContent.map {
-          content =>
-            content.dataProvider(Enumeratee.map[Array[Byte]](ByteString(_))
-              .transform(Framing.toFCGIStdin(id).transform(nextOut)))
-        }.getOrElse {
-          Enumerator(FCGIStdin(id, ByteString.empty): FCGIRecord) |>> nextOut
-        }
+    out.push(beginRquest, params, FCGIParams(id, Seq.empty))
+    optContent.map {
+      content =>
+        val contentIteratee = IterateeAdapter.adapt(out)
+        content.dataProvider(Enumeratee.map[Array[Byte]](ByteString(_))
+          .transform(Framing.toFCGIStdin(id).transform(contentIteratee)))
+    }.getOrElse {
+      out.push(FCGIStdin(id, ByteString.empty))
     }
   }
 }

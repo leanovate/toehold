@@ -1,14 +1,14 @@
 package de.leanovate.akka.fastcgi
 
-import akka.actor.{ActorLogging, Props, Actor}
+import akka.actor.{Props, Actor}
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.{FilterStdOut, BytesToFCGIRecords, FCGIRecord}
-import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnected}
+import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectionActor}
 import akka.util.ByteString
 
-class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with ActorLogging {
+class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectionActor {
 
   import context.system
 
@@ -23,7 +23,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       handler.connectionFailed()
     case c@Connected(remoteAddress, localAddress) =>
       if (log.isDebugEnabled) {
-        log.debug(s"Connected $remoteAddress -> $localAddress")
+        log.debug(s"Connected $localAddress -> $remoteAddress")
       }
       sender ! Register(self)
       val in = new AttachablePMStream[ByteString]
@@ -35,7 +35,7 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
         PMPipe.flatMap(new BytesToFCGIRecords) |>
           PMPipe.flatMap(new FilterStdOut(stderrToLog)) |>
           PMPipe.flatMap(httpExtractor) |> in
-      val outStream = new TcpConnected(sender, pipeline, closeOnEof = false).becomeConnected
+      val outStream = becomeConnected(remoteAddress, localAddress, sender, pipeline, closeOnEof = false)
       handler.connected(PMPipe.map[FCGIRecord, ByteString](_.encode) |> outStream)
   }
 

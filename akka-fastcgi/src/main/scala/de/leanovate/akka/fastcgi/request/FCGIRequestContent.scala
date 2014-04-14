@@ -9,6 +9,7 @@ package de.leanovate.akka.fastcgi.request
 import play.api.libs.iteratee.{Iteratee, Enumerator}
 import akka.util.ByteString
 import scala.concurrent.{ExecutionContext, Promise}
+import de.leanovate.akka.tcp.AttachablePMStream
 
 case class FCGIRequestContent(
   mimeType: String,

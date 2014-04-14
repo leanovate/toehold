@@ -18,6 +18,7 @@ import play.api.libs.iteratee.Iteratee
 import scala.Some
 import scala.concurrent.Promise
 import akka.pattern.ask
+import de.leanovate.play.tcp.EnumeratorAdapter
 
 object FastCGIController extends Controller {
   implicit val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
@@ -32,7 +33,7 @@ object FastCGIController extends Controller {
           requestHeader.headers.get("content-length").map {
             contentLength =>
               val p = Promise[Iteratee[Array[Byte], Any]]()
-              val content = FCGIRequestContent(
+              val requestContent = FCGIRequestContent(
               contentType,
               contentLength.toLong, {
                 it =>
@@ -44,14 +45,13 @@ object FastCGIController extends Controller {
                                                   requestHeader.rawQueryString,
                                                   documentRoot,
                                                   requestHeader.headers.toMap,
-                                                  Some(content)
+                                                  Some(requestContent)
                                                 )
-              println(request)
               val resultPromise = Promise[SimpleResult]()
               (fastCGIActor ? request).map {
                 case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                  println(headers)
-                  resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), content.map(_.toArray)))
+                  val contentEnum =  EnumeratorAdapter.adapt(content).map(_.toArray)
+                  resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum))
                 case FCGIResponderError(msg) =>
                   resultPromise.success(InternalServerError(msg))
               }
@@ -74,14 +74,13 @@ object FastCGIController extends Controller {
                                             requestHeader.headers.toMap,
                                             None
                                           )
-        println(request)
 
         Iteratee.ignore[Array[Byte]].mapM {
           _ =>
             (fastCGIActor ? request).map {
               case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                println(headers)
-                SimpleResult(ResponseHeader(statusCode, headers.toMap), content.map(_.toArray))
+                val contentEnum =  EnumeratorAdapter.adapt(content).map(_.toArray)
+                SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
               case FCGIResponderError(msg) =>
                 InternalServerError(msg)
             }

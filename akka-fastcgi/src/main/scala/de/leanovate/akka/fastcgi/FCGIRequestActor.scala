@@ -11,7 +11,7 @@ import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderErr
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{EnumeratorAdapter, AttachablePMStream, IterateeAdapter, PMStream}
+import de.leanovate.akka.tcp.{AttachablePMStream, IterateeAdapter, PMStream}
 
 class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
 
@@ -33,13 +33,13 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
     val handler = new FCGIConnectionHandler {
       override def connected(outStream: PMStream[FCGIRecord]) = {
 
-        request.writeTo(1, IterateeAdapter.adapt(outStream))
+        request.writeTo(1, outStream)
       }
 
       override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
         in: AttachablePMStream[ByteString]) = {
 
-        target ! FCGIResponderSuccess(statusCode, statusLine, headers, EnumeratorAdapter.adapt(in))
+        target ! FCGIResponderSuccess(statusCode, statusLine, headers, in)
       }
 
       override def connectionFailed() {
