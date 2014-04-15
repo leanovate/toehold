@@ -5,7 +5,7 @@ organization := "de.leanovate.toehold"
 scalaVersion := "2.10.3"
 
 libraryDependencies ++= Seq(
-  "de.leanovate.toehold" %% "play-fastcgi" % "0.1.2-SNAPSHOT"
+  "de.leanovate.toehold" %% "play-fastcgi" % "0.1.5-SNAPSHOT"
 )     
 
 play.Project.playScalaSettings

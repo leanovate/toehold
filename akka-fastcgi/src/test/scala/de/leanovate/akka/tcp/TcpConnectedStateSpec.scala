@@ -5,13 +5,16 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.scalatest.{FunSpecLike, BeforeAndAfterAll, Matchers}
 import java.net.InetSocketAddress
 import akka.util.ByteString
-import de.leanovate.akka.testutil.CollectingPMStream
+import de.leanovate.akka.testutil.{RealMockitoSugar, CollectingPMStream}
 import scala.collection.mutable
 import scala.concurrent.duration._
 import akka.io.Tcp
+import de.leanovate.akka.tcp.PMStream.{Data, Control}
+import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
+import org.mockito.Mockito.{verify, verifyZeroInteractions}
 
 class TcpConnectedStateSpec
-  extends TestKit(ActorSystem("testSystem")) with ImplicitSender with FunSpecLike with Matchers with BeforeAndAfterAll {
+  extends TestKit(ActorSystem("testSystem")) with ImplicitSender with FunSpecLike with Matchers with BeforeAndAfterAll with RealMockitoSugar{
 
   val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
 
@@ -40,10 +43,10 @@ class TcpConnectedStateSpec
     it("should immediatly suspend reading on tcp receive and resume one instream resumes") {
       inStream.clear()
 
-      mockActor ! Tcp.Received(ByteString("something"))
+      mockActor ! Tcp.Received(ByteString("something in"))
 
       assertTcpMessages(Tcp.SuspendReading)
-      inStream.result() should be(Seq("something"))
+      inStream.result() should be(Seq("something in"))
       inStream.markResume()
 
       assertTcpMessages(Tcp.ResumeReading)
@@ -52,13 +55,26 @@ class TcpConnectedStateSpec
     it("should abort the tcp connection if stream aborts") {
       inStream.clear()
 
-      mockActor ! Tcp.Received(ByteString("something"))
+      mockActor ! Tcp.Received(ByteString("something in"))
 
       assertTcpMessages(Tcp.SuspendReading)
-      inStream.result() should be(Seq("something"))
+      inStream.result() should be(Seq("something in"))
       inStream.markAbort("Some reason")
 
       assertTcpMessages(Tcp.Abort)
+    }
+
+    it("should resume out stream on WriteAck") {
+      val ctrl = mock[Control]
+
+      outStream.send(Data(ByteString("something out")), ctrl)
+
+      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      verifyZeroInteractions(ctrl)
+
+      mockActor ! TcpConnectedState.WriteAck
+
+      verify(ctrl).resume()
     }
   }
 

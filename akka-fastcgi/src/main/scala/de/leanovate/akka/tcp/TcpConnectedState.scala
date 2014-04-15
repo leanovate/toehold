@@ -136,7 +136,12 @@ object TcpConnectedState {
             if (log.isDebugEnabled) {
               log.debug(s"$localAddress -> $remoteAddress push chunk to buffer")
             }
-            Some(chunks :+ chunk, ctrl)
+            (chunks, chunk) match {
+              case (Seq(Data(remain)), Data(next)) =>
+                Some(Seq(Data(remain ++ next)), ctrl)
+              case _ =>
+                Some(chunks :+ chunk, ctrl)
+            }
           case None =>
             if (log.isDebugEnabled) {
               log.debug(s"$localAddress -> $remoteAddress push control to buffer")
@@ -164,6 +169,6 @@ object TcpConnectedState {
     }
   }
 
-  private case object WriteAck extends Event
+  private[tcp] case object WriteAck extends Event
 
 }
