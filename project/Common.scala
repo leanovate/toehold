@@ -10,6 +10,8 @@ object Common {
 
                       profileName := "de.leanovate",
 
+                      resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/",
+
                       pomExtra := {
                         <url>https://github.com/leanovate/toehold</url>
                           <licenses>
