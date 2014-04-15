@@ -7,19 +7,26 @@
 package de.leanovate.akka.testutil
 
 import de.leanovate.akka.tcp.PMStream
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream._
+import de.leanovate.akka.tcp.PMStream.Data
 
-class CollectingPMStream[A] extends PMStream[A] {
+class CollectingPMStream[A](resuming: Boolean = false) extends PMStream[A] {
   val dataSeq = Seq.newBuilder[A]
 
   var eof = false
 
+  var lastCtrl: Control = NoControl
+
   override def send(chunk: Chunk[A], ctrl: Control) {
 
+    lastCtrl = ctrl
     chunk match {
       case Data(data) =>
         if (!eof) {
           dataSeq += data
+          if (resuming) {
+            ctrl.resume()
+          }
         }
       case EOF =>
         eof = true
@@ -27,4 +34,20 @@ class CollectingPMStream[A] extends PMStream[A] {
   }
 
   def result(): Seq[A] = dataSeq.result()
+
+  def clear() {
+    dataSeq.clear()
+    lastCtrl = NoControl
+  }
+
+  def markResume() {
+
+    lastCtrl.resume()
+    lastCtrl = NoControl
+  }
+
+  def markAbort(msg:String) {
+    lastCtrl.abort(msg)
+    lastCtrl = NoControl
+  }
 }

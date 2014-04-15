@@ -5,11 +5,11 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectionActor}
+import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectedState}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 
-class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectionActor {
+class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectedState {
 
   import context.system
 

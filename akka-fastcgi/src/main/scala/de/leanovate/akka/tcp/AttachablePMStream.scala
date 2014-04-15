@@ -25,8 +25,7 @@ case class AttachablePMStream[A]() extends PMStream[A] {
 
     if (target ne null) {
       target.send(chunk, ctrl)
-    }
-    else {
+    } else {
       // this is not supposed to run below java 1.5, so double-check is ok
       synchronized {
         if (target ne null) {

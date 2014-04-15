@@ -20,15 +20,15 @@ import java.net.InetSocketAddress
  *
  * All the back-pressure handling happens here.
  */
-trait TcpConnectionActor extends ActorLogging {
+trait TcpConnectedState extends ActorLogging {
   actor: Actor =>
 
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean): PMStream[ByteString] = {
 
-    val outPMStram = new TcpConnectionActor.OutPMStream(remoteAddress, localAddress, log, connection, closeOnEof)
+    val outPMStram = new TcpConnectedState.OutPMStream(remoteAddress, localAddress, log, connection, closeOnEof)
 
-    val connectionControl = new TcpConnectionActor.ConnectionControl(remoteAddress, localAddress, log, connection)
+    val connectionControl = new TcpConnectedState.ConnectionControl(remoteAddress, localAddress, log, connection)
 
     def connected: Actor.Receive = {
 
@@ -41,7 +41,7 @@ trait TcpConnectionActor extends ActorLogging {
         connection ! Tcp.SuspendReading
 
         inStream.send(PMStream.Data(data), connectionControl)
-      case TcpConnectionActor.WriteAck =>
+      case TcpConnectedState.WriteAck =>
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress inner write ack")
         }
@@ -60,7 +60,7 @@ trait TcpConnectionActor extends ActorLogging {
   }
 }
 
-object TcpConnectionActor {
+object TcpConnectedState {
 
   private class ConnectionControl(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter, connection: ActorRef)(implicit sender: ActorRef)
     extends Control {
