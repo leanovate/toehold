@@ -1,3 +1,4 @@
+import com.typesafe.sbt.pgp.PgpKeys._
 import sbt._
 import sbt.Keys._
 import sbtrelease.ReleasePlugin.ReleaseKeys._
@@ -10,7 +11,7 @@ object Common {
     st: State =>
       val extracted = Project.extract(st)
       val ref = extracted.get(thisProjectRef)
-      extracted.runAggregated(publish in Global in ref, st)
+      extracted.runAggregated(publishSigned in Global in ref, st)
   }
 
   val settings =
