@@ -29,8 +29,10 @@ class TcpConnectedStateSpec
   override def beforeAll {
 
     mockActor !
-      (InetSocketAddress.createUnresolved("localhost", 1234), InetSocketAddress.createUnresolved("localhost", 4321),
-        mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream, true)
+      TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
+                                     InetSocketAddress.createUnresolved("localhost", 4321),
+                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
+                                     closeOnEof = true)
     outStream = receiveOne(1 second).asInstanceOf[PMStream[ByteString]]
   }
 
@@ -72,10 +74,13 @@ class TcpConnectedStateSpec
 
 object TcpConnectedStateSpec {
 
+  case class Connect(remote: InetSocketAddress, local: InetSocketAddress, connection: ActorRef,
+    inStream: PMStream[ByteString], closeOnEof: Boolean)
+
   class MockActor extends Actor with TcpConnectedState {
     override def receive = {
 
-      case (remote: InetSocketAddress, local: InetSocketAddress, connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean) =>
+      case Connect(remote, local, connection, inStream, closeOnEof) =>
         sender ! becomeConnected(remote, local, connection, inStream, closeOnEof)
     }
   }
