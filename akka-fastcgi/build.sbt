@@ -10,3 +10,5 @@ libraryDependencies ++= Seq(
                              "commons-codec" % "commons-codec" % "1.7" % "test",
                              "org.mockito" % "mockito-core" % "1.9.5" % "test"
                            )
+
+ScoverageSbtPlugin.instrumentSettings
