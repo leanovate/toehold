@@ -2,8 +2,6 @@ name := "play-fastcgi"
 
 Common.settings
 
-Common.publishSettings
-
 libraryDependencies ++= Seq(
     "de.leanovate.toehold" %% "akka-fastcgi" % version.value,
     "com.typesafe.play" %% "play" % "2.2.2",

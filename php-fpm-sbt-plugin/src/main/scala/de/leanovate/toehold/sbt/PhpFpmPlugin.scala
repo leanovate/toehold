@@ -1,42 +1,53 @@
+package de.leanovate.toehold.sbt
+
 import sbt._
 import sbt.Keys._
+import sbtfilter.Plugin.Filter
 import play.PlayRunHook
 import play.Project._
-import scala.languageFeature.postfixOps
-import sbtfilter.Plugin.Filter
+import scala.Some
 
-object PhpFpmCommands {
+object PhpFpmPlugin extends Plugin {
+  val phpFpmExecutable = SettingKey[String]("php-fpm-executable")
+
   val phpFpmConfig = TaskKey[File]("php-fpm-config")
 
   val phpFpmProcess = AttributeKey[(Process, Thread)]("php-fpm-process")
 
-  val settings = Seq(
-    phpFpmConfig <<= (streams, baseDirectory) map {
-      (s, base) =>
-        val prefix = base / "target" / "php-fpm"
-        val dest = prefix / "php-fpm.conf"
-        val props = Seq(
-          "baseDirectory" -> base.getAbsolutePath,
-          "prefix" -> prefix.getAbsolutePath
-        ).toMap
-        IO.copyFile(base / "project" / "php-fpm.conf", dest, true)
-        Filter(s.log, Seq(dest), props)
-        dest
-    },
-    commands <++= baseDirectory {
-      base => Seq(startPhpFpmCommand(base), stopPhpFpmProcess(base))
-    },
-    playRunHooks <+= (state, streams, baseDirectory, phpFpmConfig).map {
-      (state, stream, base, config) => phpFpmRunHook(state, stream.log, base, config)
-    }
-  )
+  def phpFpmSettings =
+    Seq(
+         phpFpmExecutable := "php-fpm",
 
-  def createPhpFpmProcess(log: Logger, base: File, config: File, args: String*) = {
+         phpFpmConfig <<= (streams, baseDirectory) map {
+           (s, base) =>
+             val prefix = base / "target" / "php-fpm"
+             val dest = prefix / "php-fpm.conf"
+             val props = Seq(
+                              "baseDirectory" -> base.getAbsolutePath,
+                              "prefix" -> prefix.getAbsolutePath
+                            ).toMap
+             IO.transfer(getClass.getResourceAsStream("php-fpm.conf"), dest)
+             Filter(s.log, Seq(dest), props)
+             dest
+         },
+
+         commands <++= (baseDirectory, phpFpmExecutable) {
+           (base, phpFpmExec) => Seq(startPhpFpmCommand(base, phpFpmExec), stopPhpFpmProcess(base))
+         },
+
+         playRunHooks <+= (state, streams, baseDirectory, phpFpmExecutable, phpFpmConfig).map {
+           (state, stream, base, phpFpmExec, config) => phpFpmRunHook(state, stream.log, base, phpFpmExec, config)
+         }
+
+       )
+
+  def createPhpFpmProcess(log: Logger, base: File, phpFpmExec: String, config: File, args: String*) = {
+
     log.info(s"Running php-fpm --fpm-config ${config.getAbsolutePath} ${args.mkString(" ")}")
-    Process("php-fpm" :: "--fpm-config" :: config.getAbsolutePath :: args.toList, base)
+    Process(phpFpmExec :: "--fpm-config" :: config.getAbsolutePath :: args.toList, base)
   }
 
-  def startPhpFpmCommand(base: File): Command = Command.args("start-php-fpm", "<args>") {
+  def startPhpFpmCommand(base: File, phpFpmExec: String): Command = Command.args("start-php-fpm", "<args>") {
     (state, args) =>
       state.get(phpFpmProcess).map {
         _ =>
@@ -45,9 +56,10 @@ object PhpFpmCommands {
       }.getOrElse {
         val project = Project.extract(state)
         val (nextState, config) = project.runTask(phpFpmConfig, state)
-        val process = createPhpFpmProcess(state.log, base, config, args: _*).run()
+        val process = createPhpFpmProcess(state.log, base, phpFpmExec, config, args: _*).run()
         val terminator = new Thread {
           override def run() {
+
             process.destroy()
           }
         }
@@ -67,13 +79,13 @@ object PhpFpmCommands {
       }.getOrElse(state)
   }
 
-  def phpFpmRunHook(state: State, log: Logger, base: File, config: File) = new PlayRunHook {
+  def phpFpmRunHook(state: State, log: Logger, base: File, phpFpmExec: String, config: File) = new PlayRunHook {
 
     var processAndTerminator: Option[(Process, Thread)] = None
 
     override def beforeStarted() = {
       state.get(phpFpmProcess).getOrElse {
-        val process = createPhpFpmProcess(state.log, base, config).run()
+        val process = createPhpFpmProcess(state.log, base, phpFpmExec, config).run()
         val terminator = new Thread {
           override def run() {
             process.destroy()

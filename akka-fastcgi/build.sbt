@@ -2,8 +2,6 @@ name := "akka-fastcgi"
 
 Common.settings
 
-Common.publishSettings
-
 libraryDependencies ++= Seq(
                              "com.typesafe.akka" %% "akka-actor" % "2.2.3",
                              "org.scala-stm" %% "scala-stm" % "0.7",

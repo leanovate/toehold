@@ -1,13 +1,13 @@
 name := "example"
 
-Common.settings
+organization := "de.leanovate.toehold"
+
+scalaVersion := "2.10.3"
 
 libraryDependencies ++= Seq(
-  "de.leanovate.toehold" %% "play-fastcgi" % version.value
+  "de.leanovate.toehold" %% "play-fastcgi" % "0.1.2-SNAPSHOT"
 )     
 
 play.Project.playScalaSettings
 
-filterSettings
-
-PhpFpmCommands.settings
+de.leanovate.toehold.sbt.PhpFpmPlugin.phpFpmSettings
