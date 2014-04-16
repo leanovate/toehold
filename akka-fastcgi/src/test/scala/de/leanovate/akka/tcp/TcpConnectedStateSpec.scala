@@ -1,60 +1,32 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.akka.tcp
 
 import akka.actor.{ActorSystem, ActorRef, Actor}
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
+import akka.testkit.{TestProbe, TestActorRef, TestKit}
 import java.net.InetSocketAddress
 import akka.util.ByteString
 import de.leanovate.akka.testutil.CollectingPMStream
 import scala.collection.mutable
 import akka.io.Tcp
-import de.leanovate.akka.tcp.PMStream.{Data, Control}
+import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control}
 import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
-import org.specs2.mutable.{After, SpecificationLike}
+import org.specs2.mutable.{Specification, After}
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.SECONDS
+import com.typesafe.config.ConfigFactory
 
-class TcpConnectedStateSpec
-  extends TestKit(ActorSystem("testSystem")) with ImplicitSender with SpecificationLike with ShouldMatchers with
-  Mockito {
-  isolated
-
-  trait ConnectedMockActor extends After {
-    val closeOnEof: Boolean
-
-    val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
-
-    val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
-
-    val inStream = new CollectingPMStream[String]
-
-    mockActor !
-      TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
-                                     InetSocketAddress.createUnresolved("localhost", 4321),
-                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
-                                     closeOnEof)
-
-    val outStream = receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
-
-    def assertTcpMessages(msgs: Any*) = {
-
-      msgs.foreach {
-        msg =>
-          mockConnection.underlyingActor.msgs.dequeue() shouldEqual msg
-      }
-      mockConnection.underlyingActor.msgs should have size 0
-    }
-
-    override def after {
-
-      TestKit.shutdownActorSystem(system)
-    }
-  }
+class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mockito {
 
   "TcpConnectedState" should {
     "immediatly suspend reading on tcp receive and resume one instream resumes" in new ConnectedMockActor {
-      override val closeOnEof = true
+      override def closeOnEof = true
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
@@ -66,7 +38,7 @@ class TcpConnectedStateSpec
     }
 
     "abort the tcp connection if stream aborts" in new ConnectedMockActor {
-      override val closeOnEof = true
+      override def closeOnEof = true
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
@@ -78,7 +50,7 @@ class TcpConnectedStateSpec
     }
 
     "resume out stream on WriteAck" in new ConnectedMockActor {
-      override val closeOnEof = true
+      override def closeOnEof = true
 
       val ctrl = mock[Control]
 
@@ -93,7 +65,7 @@ class TcpConnectedStateSpec
     }
 
     "buffer all output between Write and WriteAck" in new ConnectedMockActor {
-      override val closeOnEof = true
+      override def closeOnEof = true
 
       val ctrl = mock[Control]
 
@@ -116,8 +88,84 @@ class TcpConnectedStateSpec
       assertTcpMessages()
       there was one(ctrl).resume()
     }
+
+    "close connection if closeOnEof is true and EOF is send to outstream" in new ConnectedMockActor {
+      override def closeOnEof = true
+
+      val ctrl = mock[Control]
+
+      outStream.send(Data(ByteString("something out")), ctrl)
+      outStream.send(EOF, ctrl)
+
+      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      there was noCallsTo(ctrl)
+
+      mockActor ! TcpConnectedState.WriteAck
+
+      assertTcpMessages(Tcp.Close)
+      there was noCallsTo(ctrl)
+    }
+
+    "not close connection if closeOnEof is false and EOF is send to outstream" in new ConnectedMockActor {
+      override def closeOnEof = false
+
+      val ctrl = mock[Control]
+
+      outStream.send(Data(ByteString("something out")), ctrl)
+      outStream.send(EOF, ctrl)
+
+      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      there was noCallsTo(ctrl)
+
+      mockActor ! TcpConnectedState.WriteAck
+
+      assertTcpMessages()
+      there was noCallsTo(ctrl)
+    }
   }
 
+  trait ConnectedMockActor extends After {
+    implicit val system =
+      ActorSystem("TestSystem", ConfigFactory.parseString( """akka.loglevel = "DEBUG"
+                                                             |akka.loggers = ["akka.testkit.TestEventListener"]"""
+        .stripMargin)
+                 )
+
+    val sender = TestProbe()
+
+    implicit val self = sender.ref
+
+    def closeOnEof: Boolean
+
+    val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
+
+    val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
+
+    val inStream = new CollectingPMStream[String]
+
+    mockActor !
+      TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
+                                     InetSocketAddress.createUnresolved("localhost", 4321),
+                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
+                                     closeOnEof)
+
+    val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+
+    def assertTcpMessages(msgs: Any*) = {
+
+      mockConnection.underlyingActor.msgs should have size msgs.size
+      msgs.foreach {
+        msg =>
+          mockConnection.underlyingActor.msgs.dequeue() shouldEqual msg
+      }
+      mockConnection.underlyingActor.msgs should have size 0
+    }
+
+    override def after {
+
+      TestKit.shutdownActorSystem(system)
+    }
+  }
 }
 
 object TcpConnectedStateSpec {

@@ -49,10 +49,11 @@ object FileAssetsController extends Controller {
 
           if (!file.exists() || !file.isFile) {
             NotFound
-          }
-          maybeNotModified(request, file).getOrElse {
-            Ok.sendFile(file).withHeaders(ETAG -> calcEtag(file),
-                                           DATE -> df.print(file.lastModified()))
+          } else {
+            maybeNotModified(request, file).getOrElse {
+              Ok.sendFile(file).withHeaders(ETAG -> calcEtag(file),
+                                             DATE -> df.print(file.lastModified()))
+            }
           }
         }
       }
@@ -66,7 +67,7 @@ object FileAssetsController extends Controller {
         etags.split(",").find(_.trim == etag).map(_ => NotModified)
       case None =>
         val lastModified = file.lastModified()
-        request.headers.get(IF_MODIFIED_SINCE).flatMap(parseDate).filter(_ < lastModified).map(_ => NotModified)
+        request.headers.get(IF_MODIFIED_SINCE).flatMap(parseDate).filter(_ >= lastModified).map(_ => NotModified)
     }
   }
 

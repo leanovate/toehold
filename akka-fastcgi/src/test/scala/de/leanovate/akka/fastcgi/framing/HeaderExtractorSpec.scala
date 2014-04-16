@@ -1,3 +1,9 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.akka.fastcgi.framing
 
 import org.specs2.mutable.Specification
@@ -52,7 +58,7 @@ class HeaderExtractorSpec extends Specification with ShouldMatchers with Mockito
       val headersCallback = mock[(Int, String, Seq[(String, String)]) => Unit]
       val pipe = PMPipe.flatMapChunk(new HeaderExtractor(headersCallback)) |> out
 
-      pipe.push(ByteString("Status: 404 Notfound\r\nContent-Type: text/plain\r\nETag"), ByteString(": 1234567\r\nLa"),
+      pipe.push(ByteString("Status: 404 Notfound\r\nContent-Type: text/plain\nETag"), ByteString(": 1234567\r\nLa"),
                  ByteString("st-Modified: 7654\r\n\r"), ByteString("\n987654321"))
       pipe.send(EOF, NoControl)
 
