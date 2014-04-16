@@ -13,6 +13,7 @@ import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdOut, FCGIRecord
 import de.leanovate.akka.testutil.CollectingPMStream
 import scala.util.Random
 import org.specs2.matcher.ShouldMatchers
+import de.leanovate.akka.tcp.PMStream.{EOF, NoControl}
 
 class BytesToFCGIRecordSpec extends Specification with ShouldMatchers {
   val responseData = ByteString(Hex
@@ -42,7 +43,9 @@ class BytesToFCGIRecordSpec extends Specification with ShouldMatchers {
       val pipe = Framing.bytesToFCGIRecords |> out
 
       pipe.push(responseData)
+      pipe.send(EOF, NoControl)
 
+      out.eof should beTrue
       isExpected(out.result())
     }
 

@@ -28,16 +28,7 @@ class BytesToFCGIRecords extends (Chunk[ByteString] => Seq[Chunk[FCGIRecord]]) {
         }
         records.result()
       case EOF =>
-        val records = Seq.newBuilder[Chunk[FCGIRecord]]
-        var extracted = FCGIRecord.decode(buffer)
-        buffer = extracted._2
-        while (extracted._1.isDefined) {
-          records += Data(extracted._1.get)
-          extracted = FCGIRecord.decode(buffer)
-          buffer = extracted._2
-        }
-        records += EOF
-        records.result()
+        Seq(EOF)
     }
   }
 }

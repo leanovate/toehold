@@ -37,6 +37,20 @@ class FilterStdOutSpec extends Specification with ShouldMatchers {
       pipe.send(Data(FCGIStdErr(1, ByteString("something"))), NoControl)
       pipe.send(EOF, NoControl)
       pipe.send(Data(FCGIStdOut(1, ByteString("World"))), NoControl)
+      pipe.send(EOF, NoControl)
+
+      out.eof should beTrue
+      stderrs.result() shouldEqual Seq(ByteString("something"))
+      out.result() shouldEqual Seq(ByteString("Hello"))
+    }
+
+    "eof on FCGIEndRecord" in {
+      val stderrs = Seq.newBuilder[ByteString]
+      val out = new CollectingPMStream[ByteString]
+      val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
+
+      pipe.push(FCGIStdOut(1, ByteString("Hello")), FCGIStdErr(1, ByteString("something")),
+                 FCGIEndRequest(1), FCGIStdOut(1, ByteString("World")), FCGIEndRequest(1))
 
       out.eof should beTrue
       stderrs.result() shouldEqual Seq(ByteString("something"))
