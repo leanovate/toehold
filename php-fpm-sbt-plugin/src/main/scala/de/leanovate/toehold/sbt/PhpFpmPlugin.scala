@@ -43,7 +43,7 @@ object PhpFpmPlugin extends Plugin {
 
   def createPhpFpmProcess(log: Logger, base: File, phpFpmExec: String, config: File, args: String*) = {
 
-    log.info(s"Running php-fpm --fpm-config ${config.getAbsolutePath} ${args.mkString(" ")}")
+    log.info(s"Running $phpFpmExec --fpm-config ${config.getAbsolutePath} ${args.mkString(" ")}")
     Process(phpFpmExec :: "--fpm-config" :: config.getAbsolutePath :: args.toList, base)
   }
 
@@ -54,18 +54,24 @@ object PhpFpmPlugin extends Plugin {
           state.log.info("Already started")
           state
       }.getOrElse {
-        val project = Project.extract(state)
-        val (nextState, config) = project.runTask(phpFpmConfig, state)
-        val process = createPhpFpmProcess(state.log, base, phpFpmExec, config, args: _*).run()
-        val terminator = new Thread {
-          override def run() {
+        try {
+          val project = Project.extract(state)
+          val (nextState, config) = project.runTask(phpFpmConfig, state)
+          val process = createPhpFpmProcess(state.log, base, phpFpmExec, config, args: _*).run()
+          val terminator = new Thread {
+            override def run() {
 
-            process.destroy()
+              process.destroy()
+            }
           }
-        }
-        java.lang.Runtime.getRuntime.addShutdownHook(terminator)
+          java.lang.Runtime.getRuntime.addShutdownHook(terminator)
 
-        nextState.put(phpFpmProcess, (process, terminator))
+          nextState.put(phpFpmProcess, (process, terminator))
+        } catch {
+          case e: Exception =>
+            state.log.warn(s"Unable to start php-fpm process: ${e.getMessage}")
+            state
+        }
       }
   }
 
@@ -85,14 +91,21 @@ object PhpFpmPlugin extends Plugin {
 
     override def beforeStarted() = {
       state.get(phpFpmProcess).getOrElse {
-        val process = createPhpFpmProcess(state.log, base, phpFpmExec, config).run()
-        val terminator = new Thread {
-          override def run() {
-            process.destroy()
+        try {
+          val process = createPhpFpmProcess(state.log, base, phpFpmExec, config).run()
+          val terminator = new Thread {
+            override def run() {
+
+              process.destroy()
+            }
           }
+          java.lang.Runtime.getRuntime.addShutdownHook(terminator)
+          processAndTerminator = Some(process, terminator)
+        } catch {
+          case e: Exception =>
+            state.log.warn(s"Unable to start php-fpm process: ${e.getMessage}")
+            state
         }
-        java.lang.Runtime.getRuntime.addShutdownHook(terminator)
-        processAndTerminator = Some(process, terminator)
       }
     }
 
