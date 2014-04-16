@@ -9,7 +9,7 @@ import scala.collection.mutable
 import akka.io.Tcp
 import de.leanovate.akka.tcp.PMStream.{Data, Control}
 import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
-import org.specs2.mutable.SpecificationLike
+import org.specs2.mutable.{After, SpecificationLike}
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
 import scala.concurrent.duration.Duration
@@ -18,26 +18,43 @@ import scala.concurrent.duration.SECONDS
 class TcpConnectedStateSpec
   extends TestKit(ActorSystem("testSystem")) with ImplicitSender with SpecificationLike with ShouldMatchers with
   Mockito {
+  isolated
 
-  val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
+  trait ConnectedMockActor extends After {
+    val closeOnEof: Boolean
 
-  val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
+    val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
 
-  val inStream = new CollectingPMStream[String]
+    val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
 
-  mockActor !
-    TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
-                                   InetSocketAddress.createUnresolved("localhost", 4321),
-                                   mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
-                                   closeOnEof = true)
+    val inStream = new CollectingPMStream[String]
 
-  val outStream = receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+    mockActor !
+      TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
+                                     InetSocketAddress.createUnresolved("localhost", 4321),
+                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
+                                     closeOnEof)
 
-  sequential
+    val outStream = receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+
+    def assertTcpMessages(msgs: Any*) = {
+
+      msgs.foreach {
+        msg =>
+          mockConnection.underlyingActor.msgs.dequeue() shouldEqual msg
+      }
+      mockConnection.underlyingActor.msgs should have size 0
+    }
+
+    override def after {
+
+      TestKit.shutdownActorSystem(system)
+    }
+  }
 
   "TcpConnectedState" should {
-    "immediatly suspend reading on tcp receive and resume one instream resumes" in {
-      inStream.clear()
+    "immediatly suspend reading on tcp receive and resume one instream resumes" in new ConnectedMockActor {
+      override val closeOnEof = true
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
@@ -48,8 +65,8 @@ class TcpConnectedStateSpec
       assertTcpMessages(Tcp.ResumeReading)
     }
 
-    "abort the tcp connection if stream aborts" in {
-      inStream.clear()
+    "abort the tcp connection if stream aborts" in new ConnectedMockActor {
+      override val closeOnEof = true
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
@@ -60,7 +77,9 @@ class TcpConnectedStateSpec
       assertTcpMessages(Tcp.Abort)
     }
 
-    "should resume out stream on WriteAck" in {
+    "resume out stream on WriteAck" in new ConnectedMockActor {
+      override val closeOnEof = true
+
       val ctrl = mock[Control]
 
       outStream.send(Data(ByteString("something out")), ctrl)
@@ -72,20 +91,33 @@ class TcpConnectedStateSpec
 
       there was one(ctrl).resume()
     }
-  }
 
-  step {
-    TestKit.shutdownActorSystem(system)
-  }
+    "buffer all output between Write and WriteAck" in new ConnectedMockActor {
+      override val closeOnEof = true
 
-  def assertTcpMessages(msgs: Any*) = {
+      val ctrl = mock[Control]
 
-    msgs.foreach {
-      msg =>
-        mockConnection.underlyingActor.msgs.dequeue() shouldEqual msg
+      outStream.send(Data(ByteString("something out")), ctrl)
+
+      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      there was noCallsTo(ctrl)
+
+      outStream.send(Data(ByteString("some more out")), ctrl)
+      assertTcpMessages()
+      there was noCallsTo(ctrl)
+
+      mockActor ! TcpConnectedState.WriteAck
+
+      assertTcpMessages(Tcp.Write(ByteString("some more out"), WriteAck))
+      there was noCallsTo(ctrl)
+
+      mockActor ! TcpConnectedState.WriteAck
+
+      assertTcpMessages()
+      there was one(ctrl).resume()
     }
-    mockConnection.underlyingActor.msgs should have size 0
   }
+
 }
 
 object TcpConnectedStateSpec {
