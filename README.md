@@ -5,7 +5,7 @@ Get a toehold on PHP (behind Play or java in general)
 
 # Build status
 
-[![Build Status](https://buildhive.cloudbees.com/job/leanovate/job/toehold/badge/icon)](https://buildhive.cloudbees.com/job/leanovate/job/toehold/)
+[![Build Status](https://travis-ci.org/leanovate/toehold.svg?branch=master)](https://travis-ci.org/leanovate/toehold)
 
 # Licence
 
