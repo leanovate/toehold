@@ -1,61 +1,60 @@
 package de.leanovate.akka.tcp
 
-import org.scalatest.{Matchers, FunSpec}
 import de.leanovate.akka.tcp.PMStream.{NoControl, Data, Chunk, Control}
-import org.mockito.Mockito.{spy, verify, verifyZeroInteractions, verifyNoMoreInteractions}
-import de.leanovate.akka.testutil.RealMockitoSugar
+import org.specs2.mutable.Specification
+import org.specs2.matcher.ShouldMatchers
+import org.specs2.mock.Mockito
 
-class PMStreamSpec extends FunSpec with Matchers with RealMockitoSugar {
-  describe("PMStream") {
-    describe("send chunks") {
-      it("should only forward the last resume") {
-        val control = mock[Control]
-        val stream = spy(new NullPMStream)
+class PMStreamSpec extends Specification with ShouldMatchers with Mockito {
+  "PMStream" should {
+    "only forward the last resume on send chunks" in {
+      val control = mock[Control]
+      val stream = spy(new NullPMStream)
 
-        stream.send(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), control)
+      stream.sendSeq(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), control)
 
-        val control1 = captor[Control]
-        verify(stream).send(is(Data("Chunk1")), control1.capture())
-        control1.getValue.resume()
-        val control2 = captor[Control]
-        verify(stream).send(is(Data("Chunk2")), control2.capture())
-        control2.getValue.resume()
-        val control3 = captor[Control]
-        verify(stream).send(is(Data("Chunk3")), control3.capture())
-        verifyZeroInteractions(control)
-        control3.getValue.resume()
-        verify(control).resume()
-        verifyNoMoreInteractions(control)
-      }
-
-      it("should foward all errors") {
-        val control = mock[Control]
-        val stream = spy(new NullPMStream)
-
-        stream.send(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), control)
-
-        val control1 = captor[Control]
-        verify(stream).send(is(Data("Chunk1")), control1.capture())
-        control1.getValue.abort("Error1")
-        val control2 = captor[Control]
-        verify(stream).send(is(Data("Chunk2")), control2.capture())
-        control2.getValue.abort("Error2")
-        val control3 = captor[Control]
-        verify(stream).send(is(Data("Chunk3")), control3.capture())
-        control3.getValue.abort("Error3")
-        verify(control).abort("Error1")
-        verify(control).abort("Error2")
-        verify(control).abort("Error3")
-        verifyNoMoreInteractions(control)
-      }
+      val control1 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk1")), control1.capture)
+      control1.value.resume()
+      val control2 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk2")), control2.capture)
+      control2.value.resume()
+      val control3 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk3")), control3.capture)
+      there was noCallsTo(control)
+      control3.value.resume()
+      there was one(control).resume()
+      there was noMoreCallsTo(control)
     }
 
-    it("should push directly") {
+    "forward all errors on send chunks" in {
+      val control = mock[Control]
+      val stream = spy(new NullPMStream)
+
+      stream.sendSeq(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), control)
+
+      val control1 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk1")), control1.capture)
+      control1.value.abort("Error1")
+      val control2 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk2")), control2.capture)
+      control2.value.abort("Error2")
+      val control3 = capture[Control]
+      there was one(stream).send(typedEqualTo(Data("Chunk3")), control3.capture)
+      control3.value.abort("Error3")
+      there was one(control).abort("Error1")
+      there was one(control).abort("Error2")
+      there was one(control).abort("Error3")
+      there was noMoreCallsTo(control)
+    }
+
+    "should push directly" in {
       val stream = spy(new NullPMStream)
 
       stream.push("Chunk1", "Chunk2", "Chunk3")
 
-      verify(stream).send(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), NoControl)
+      there was one(stream).sendSeq(Seq(Data("Chunk1"), Data("Chunk2"), Data("Chunk3")), NoControl)
+      true
     }
   }
 

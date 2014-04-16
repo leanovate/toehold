@@ -1,32 +1,33 @@
 package de.leanovate.akka.tcp
 
-import org.scalatest.{Matchers, FunSpec}
-import de.leanovate.akka.testutil.{CollectingPMStream, RealMockitoSugar}
+import de.leanovate.akka.testutil.CollectingPMStream
 import de.leanovate.akka.tcp.PMStream.{Data, Control}
-import org.mockito.Mockito.{verify, verifyZeroInteractions, times}
+import org.specs2.mutable.Specification
+import org.specs2.matcher.ShouldMatchers
+import org.specs2.mock.Mockito
 
-class AttachablePMStreamSpec extends FunSpec with Matchers with RealMockitoSugar {
-  describe("AttachablePMStream") {
-    it("should buffer data in unattached state") {
+class AttachablePMStreamSpec extends Specification with ShouldMatchers with Mockito {
+  "AttachablePMStream" should {
+    "buffer data in unattached state" in {
       val attachable = new AttachablePMStream[String]
       val ctrl = mock[Control]
 
       attachable.send(Data("1"), ctrl)
       attachable.send(Data("2"), ctrl)
       attachable.send(Data("3"), ctrl)
-      verifyZeroInteractions(ctrl)
+      there was noCallsTo(ctrl)
 
       val out = new CollectingPMStream[String](resuming = true)
 
       attachable.attach(out)
 
-      verify(ctrl, times(1)).resume()
+      there was one(ctrl).resume()
 
-      out.eof should be(false)
-      out.result() should be(Seq("1", "2", "3"))
+      out.eof should beFalse
+      out.result() shouldEqual Seq("1", "2", "3")
     }
 
-    it("should pass through after attached") {
+    "should pass through after attached" in {
       val attachable = new AttachablePMStream[String]
       val ctrl = mock[Control]
       val out = new CollectingPMStream[String](resuming = true)
@@ -37,10 +38,10 @@ class AttachablePMStreamSpec extends FunSpec with Matchers with RealMockitoSugar
       attachable.send(Data("2"), ctrl)
       attachable.send(Data("3"), ctrl)
 
-      verify(ctrl, times(3)).resume()
+      there was three(ctrl).resume()
 
-      out.eof should be(false)
-      out.result() should be(Seq("1", "2", "3"))
+      out.eof should beFalse
+      out.result() shouldEqual Seq("1", "2", "3")
     }
   }
 }

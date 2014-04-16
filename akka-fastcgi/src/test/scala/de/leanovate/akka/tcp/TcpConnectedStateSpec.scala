@@ -2,19 +2,22 @@ package de.leanovate.akka.tcp
 
 import akka.actor.{ActorSystem, ActorRef, Actor}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
-import org.scalatest.{FunSpecLike, BeforeAndAfterAll, Matchers}
 import java.net.InetSocketAddress
 import akka.util.ByteString
-import de.leanovate.akka.testutil.{RealMockitoSugar, CollectingPMStream}
+import de.leanovate.akka.testutil.CollectingPMStream
 import scala.collection.mutable
-import scala.concurrent.duration._
 import akka.io.Tcp
 import de.leanovate.akka.tcp.PMStream.{Data, Control}
 import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
-import org.mockito.Mockito.{verify, verifyZeroInteractions}
+import org.specs2.mutable.SpecificationLike
+import org.specs2.matcher.ShouldMatchers
+import org.specs2.mock.Mockito
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.SECONDS
 
 class TcpConnectedStateSpec
-  extends TestKit(ActorSystem("testSystem")) with ImplicitSender with FunSpecLike with Matchers with BeforeAndAfterAll with RealMockitoSugar{
+  extends TestKit(ActorSystem("testSystem")) with ImplicitSender with SpecificationLike with ShouldMatchers with
+  Mockito {
 
   val mockActor = TestActorRef[TcpConnectedStateSpec.MockActor]
 
@@ -22,67 +25,64 @@ class TcpConnectedStateSpec
 
   val inStream = new CollectingPMStream[String]
 
-  var outStream: PMStream[ByteString] = _
+  mockActor !
+    TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
+                                   InetSocketAddress.createUnresolved("localhost", 4321),
+                                   mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
+                                   closeOnEof = true)
 
-  override def afterAll {
+  val outStream = receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
 
-    TestKit.shutdownActorSystem(system)
-  }
+  sequential
 
-  override def beforeAll {
-
-    mockActor !
-      TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
-                                     InetSocketAddress.createUnresolved("localhost", 4321),
-                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
-                                     closeOnEof = true)
-    outStream = receiveOne(1 second).asInstanceOf[PMStream[ByteString]]
-  }
-
-  describe("TcpConnectedState") {
-    it("should immediatly suspend reading on tcp receive and resume one instream resumes") {
+  "TcpConnectedState" should {
+    "immediatly suspend reading on tcp receive and resume one instream resumes" in {
       inStream.clear()
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
       assertTcpMessages(Tcp.SuspendReading)
-      inStream.result() should be(Seq("something in"))
+      inStream.result() shouldEqual Seq("something in")
       inStream.markResume()
 
       assertTcpMessages(Tcp.ResumeReading)
     }
 
-    it("should abort the tcp connection if stream aborts") {
+    "abort the tcp connection if stream aborts" in {
       inStream.clear()
 
       mockActor ! Tcp.Received(ByteString("something in"))
 
       assertTcpMessages(Tcp.SuspendReading)
-      inStream.result() should be(Seq("something in"))
+      inStream.result() shouldEqual Seq("something in")
       inStream.markAbort("Some reason")
 
       assertTcpMessages(Tcp.Abort)
     }
 
-    it("should resume out stream on WriteAck") {
+    "should resume out stream on WriteAck" in {
       val ctrl = mock[Control]
 
       outStream.send(Data(ByteString("something out")), ctrl)
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
-      verifyZeroInteractions(ctrl)
+      there was noCallsTo(ctrl)
 
       mockActor ! TcpConnectedState.WriteAck
 
-      verify(ctrl).resume()
+      there was one(ctrl).resume()
     }
   }
 
-  def assertTcpMessages(msgs: Any*) {
+  step {
+    TestKit.shutdownActorSystem(system)
+  }
+
+  def assertTcpMessages(msgs: Any*) = {
 
     msgs.foreach {
       msg =>
-        mockConnection.underlyingActor.msgs.dequeue() should be(msg)
+        mockConnection.underlyingActor.msgs.dequeue() shouldEqual msg
     }
     mockConnection.underlyingActor.msgs should have size 0
   }

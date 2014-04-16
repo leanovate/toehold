@@ -41,7 +41,7 @@ case class AttachablePMStream[A]() extends PMStream[A] {
   def attach(_target: PMStream[A]) {
 
     synchronized {
-      _target.send(chunks.result(), lastCtrl)
+      _target.sendSeq(chunks.result(), lastCtrl)
       chunks.clear()
       target = _target
     }

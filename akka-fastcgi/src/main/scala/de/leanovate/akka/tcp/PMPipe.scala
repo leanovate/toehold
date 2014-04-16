@@ -40,7 +40,7 @@ object PMPipe {
     override def |>(target: PMStream[To]) = new PMStream[From] {
       override def send(chunk: Chunk[From], ctrl: Control) = {
 
-        target.send(f(chunk), ctrl)
+        target.sendSeq(f(chunk), ctrl)
       }
     }
   }

@@ -39,7 +39,7 @@ trait PMStream[A] {
    * THis might happen during framing/un-framing. If you already have a sequence of chunks in memory you have to get
    * rid of them somehow.
    */
-  def send(chunks: Seq[Chunk[A]], ctrl: Control) {
+  def sendSeq(chunks: Seq[Chunk[A]], ctrl: Control) {
 
     if (chunks.isEmpty) {
       ctrl.resume()
@@ -67,7 +67,7 @@ trait PMStream[A] {
    * Note: This does not have any form of back-pressure handling. Use with care.
    */
   def push(data: A*) {
-    send(data.map(Data.apply), NoControl)
+    sendSeq(data.map(Data.apply), NoControl)
   }
 }
 

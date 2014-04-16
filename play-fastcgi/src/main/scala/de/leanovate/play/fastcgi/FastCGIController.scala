@@ -28,7 +28,9 @@ object FastCGIController extends Controller {
 
   val fastCGIActor = Akka.system.actorSelection("/user/" + FastCGISupport.FASTCGI_ACTOR_NAME)
 
-  def serve(documentRoot: String, path: String, extension: String) = EssentialAction {
+  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+
+  def serve(path: String, extension: String, documentRoot: Option[String] = None) = EssentialAction {
     requestHeader =>
       requestHeader.contentType.map {
         contentType =>
@@ -40,7 +42,7 @@ object FastCGIController extends Controller {
                                                   requestHeader.method,
                                                   "/" + path + extension,
                                                   requestHeader.rawQueryString,
-                                                  documentRoot,
+                                                  documentRoot.getOrElse(defaultDocumentRoot),
                                                   requestHeader.headers.toMap,
                                                   Some(requestContent)
                                                 )
@@ -67,7 +69,7 @@ object FastCGIController extends Controller {
                                             requestHeader.method,
                                             "/" + path + extension,
                                             requestHeader.rawQueryString,
-                                            documentRoot,
+                                            documentRoot.getOrElse(defaultDocumentRoot),
                                             requestHeader.headers.toMap,
                                             None
                                           )

@@ -6,15 +6,16 @@
 
 package de.leanovate.akka.fastcgi.framing
 
-import org.scalatest.{Matchers, FunSpec}
+import org.specs2.mutable.Specification
 import de.leanovate.akka.testutil.CollectingPMStream
 import akka.util.ByteString
-import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdErr, FCGIStdOut, FCGIRecord}
+import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdErr, FCGIStdOut}
 import de.leanovate.akka.tcp.PMStream.{EOF, NoControl, Data}
+import org.specs2.matcher.ShouldMatchers
 
-class FilterStdOutSpec extends FunSpec with Matchers {
-  describe("FilterStdOut") {
-    it("should only only pass FCGISTdOut records") {
+class FilterStdOutSpec extends Specification with ShouldMatchers {
+  "FilterStdOut" should {
+    "only only pass FCGISTdOut records" in {
       val stderrs = Seq.newBuilder[ByteString]
       val out = new CollectingPMStream[ByteString]
       val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
@@ -22,12 +23,12 @@ class FilterStdOutSpec extends FunSpec with Matchers {
       pipe.push(FCGIStdOut(1, ByteString("Hello")), FCGIStdErr(1, ByteString("something")),
                  FCGIStdOut(1, ByteString("World")), FCGIEndRequest(1))
 
-      out.eof should be(true)
-      stderrs.result() should be(Seq(ByteString("something")))
-      out.result() should be(Seq(ByteString("Hello"), ByteString("World")))
+      out.eof should beTrue
+      stderrs.result() shouldEqual Seq(ByteString("something"))
+      out.result() shouldEqual Seq(ByteString("Hello"), ByteString("World"))
     }
 
-    it("should honour eof") {
+    "honour eof" in {
       val stderrs = Seq.newBuilder[ByteString]
       val out = new CollectingPMStream[ByteString]
       val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
@@ -37,9 +38,9 @@ class FilterStdOutSpec extends FunSpec with Matchers {
       pipe.send(EOF, NoControl)
       pipe.send(Data(FCGIStdOut(1, ByteString("World"))), NoControl)
 
-      out.eof should be(true)
-      stderrs.result() should be(Seq(ByteString("something")))
-      out.result() should be(Seq(ByteString("Hello")))
+      out.eof should beTrue
+      stderrs.result() shouldEqual Seq(ByteString("something"))
+      out.result() shouldEqual Seq(ByteString("Hello"))
     }
   }
 }

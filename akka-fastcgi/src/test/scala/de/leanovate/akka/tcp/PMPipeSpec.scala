@@ -1,24 +1,25 @@
 package de.leanovate.akka.tcp
 
-import org.scalatest.{Matchers, FunSpec}
-import de.leanovate.akka.testutil.{CollectingPMStream, RealMockitoSugar}
-import akka.util.ByteString
+import de.leanovate.akka.testutil.CollectingPMStream
 import de.leanovate.akka.tcp.PMStream.{Data, NoControl, EOF}
+import org.specs2.mutable.Specification
+import org.specs2.matcher.ShouldMatchers
+import org.specs2.mock.Mockito
 
-class PMPipeSpec extends FunSpec with Matchers with RealMockitoSugar {
-  describe("PMPipe") {
-    it("should support simple data mapping") {
+class PMPipeSpec extends Specification with ShouldMatchers with Mockito {
+  "PMPipe" should {
+    "support simple data mapping" in {
       val out = new CollectingPMStream[Int]
       val pipe = PMPipe.map[String, Int](_.toInt) |> out
 
       pipe.push("1", "2", "3")
       pipe.send(EOF, NoControl)
 
-      out.eof should be(true)
-      out.result() should be(Seq(1, 2, 3))
+      out.eof should beTrue
+      out.result() shouldEqual Seq(1, 2, 3)
     }
 
-    it("should support chunk mapping") {
+    "support chunk mapping" in {
       val out = new CollectingPMStream[Int]
       val pipe = PMPipe.mapChunk[String, Int] {
         case Data(str) => Data(str.toInt)
@@ -28,11 +29,11 @@ class PMPipeSpec extends FunSpec with Matchers with RealMockitoSugar {
       pipe.push("1", "2", "3")
       pipe.send(EOF, NoControl)
 
-      out.eof should be(false)
-      out.result() should be(Seq(1, 2, 3, 0))
+      out.eof should beFalse
+      out.result() shouldEqual Seq(1, 2, 3, 0)
     }
 
-    it("should support flatMap on chunk") {
+    "support flatMap on chunk" in {
       val out = new CollectingPMStream[Int]
       val pipe = PMPipe.flatMapChunk[String, Int] {
         case Data(str) => Range(0, str.toInt + 1).map(Data(_))
@@ -42,11 +43,11 @@ class PMPipeSpec extends FunSpec with Matchers with RealMockitoSugar {
       pipe.push("1", "2", "3")
       pipe.send(EOF, NoControl)
 
-      out.eof should be(false)
-      out.result() should be(Seq(0, 1, 0, 1, 2, 0, 1, 2, 3, 0))
+      out.eof should beFalse
+      out.result() shouldEqual Seq(0, 1, 0, 1, 2, 0, 1, 2, 3, 0)
     }
 
-    it("should be able to concat associatively") {
+    "should be able to concat associatively" in {
       val concatPipe = PMPipe.map[String, Int](_.toInt) |> PMPipe.flatMapChunk[Int, Int] {
         case Data(idx) => Range(0, idx + 1).map(Data(_))
         case EOF => Seq(Data(0))
@@ -57,8 +58,8 @@ class PMPipeSpec extends FunSpec with Matchers with RealMockitoSugar {
       pipe.push("1", "2", "3")
       pipe.send(EOF, NoControl)
 
-      out.eof should be(false)
-      out.result() should be(Seq(0, 1, 0, 1, 2, 0, 1, 2, 3, 0))
+      out.eof should beFalse
+      out.result() shouldEqual Seq(0, 1, 0, 1, 2, 0, 1, 2, 3, 0)
     }
   }
 }

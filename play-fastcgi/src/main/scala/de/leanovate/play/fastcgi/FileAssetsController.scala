@@ -6,36 +6,80 @@
 
 package de.leanovate.play.fastcgi
 
-import play.api.mvc.{Action, Controller}
+import play.api.mvc.{SimpleResult, RequestHeader, Action, Controller}
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.joda.time.DateTimeZone
 import java.io.File
+import scala.collection.JavaConversions._
+import scala.util.control.NonFatal
+import play.api.libs.Codecs
+import play.api.Play.current
+import play.api.Play.configuration
 
 object FileAssetsController extends Controller {
-  private val whitelist = Set("gif", "png", "js", "css", "jpg")
   private val timeZoneCode = "GMT"
 
+  private val df: DateTimeFormatter =
+    DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss '" + timeZoneCode + "'").withLocale(java.util.Locale.ENGLISH)
+      .withZone(DateTimeZone.forID(timeZoneCode))
+
   private val dfp: DateTimeFormatter =
-    DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss").withLocale(java.util.Locale.ENGLISH).withZone(DateTimeZone.forID(timeZoneCode))
+    DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss").withLocale(java.util.Locale.ENGLISH)
+      .withZone(DateTimeZone.forID(timeZoneCode))
 
-  def file(documentRoot: String, path: String) = Action {
-    val idx = path.lastIndexOf('.')
-    if ( idx < 0 )
-      Forbidden
-    else {
-      val extension = path.substring(idx + 1).toLowerCase
+  private val parsableTimezoneCode = " " + timeZoneCode
 
-      if (!whitelist.contains(extension))
+  protected val whitelist = configuration.getStringList("fastcgi.assets.whitelist").map(_.toSet)
+    .getOrElse(Set("gif", "png", "js", "css", "jpg"))
+
+  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+
+  def file(path: String, documentRoot: Option[String] = None) = Action {
+    request =>
+      val idx = path.lastIndexOf('.')
+      if (idx < 0) {
         Forbidden
-      else {
-        val file = new File(documentRoot + "/" + path)
+      } else {
+        val extension = path.substring(idx + 1).toLowerCase
 
-        if (!file.exists() || !file.isFile)
-          NotFound
+        if (!whitelist.contains(extension)) {
+          Forbidden
+        } else {
+          val file = new File(documentRoot.getOrElse(defaultDocumentRoot) + "/" + path)
 
-
-        Ok.sendFile(file)
+          if (!file.exists() || !file.isFile) {
+            NotFound
+          }
+          maybeNotModified(request, file).getOrElse {
+            Ok.sendFile(file).withHeaders(ETAG -> calcEtag(file),
+                                           DATE -> df.print(file.lastModified()))
+          }
+        }
       }
+  }
+
+  protected def maybeNotModified(request: RequestHeader, file: File): Option[SimpleResult] = {
+
+    request.headers.get(IF_NONE_MATCH) match {
+      case Some(etags) =>
+        val etag = calcEtag(file)
+        etags.split(",").find(_.trim == etag).map(_ => NotModified)
+      case None =>
+        val lastModified = file.lastModified()
+        request.headers.get(IF_MODIFIED_SINCE).flatMap(parseDate).filter(_ < lastModified).map(_ => NotModified)
     }
+  }
+
+  protected def parseDate(date: String): Option[Long] = try {
+    //jodatime does not parse timezones, so we handle that manually
+    val d = dfp.parseDateTime(date.replace(parsableTimezoneCode, "")).getMillis
+    Some(d)
+  } catch {
+    case NonFatal(_) => None
+  }
+
+  protected def calcEtag(file: File): String = {
+
+    Codecs.sha1(file.getName + file.lastModified() + file.length())
   }
 }
