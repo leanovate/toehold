@@ -21,7 +21,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
 
   "FileAssetsController.file" should {
     "be forbidden for everything without an extension" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
         val result = FileAssetsController.file("noextension", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual FORBIDDEN
@@ -29,7 +29,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "be forbidden for everything not on the whitelist" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
         val result = FileAssetsController.file("notallowed.php", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual FORBIDDEN
@@ -37,7 +37,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "be not found for nonexisting files" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
         val result = FileAssetsController.file("unknonw.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual NOT_FOUND
@@ -45,7 +45,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "be not found for directories" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
         new File(documentRoot, "illegal.gif").mkdirs()
 
         val result = FileAssetsController.file("illegal.gif", Some(documentRoot.getAbsolutePath))(FakeRequest())
@@ -55,7 +55,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "server a regular file" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
 
         printToFile(new File(documentRoot, "allowed.css")) {
           out =>
@@ -71,7 +71,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "answer not modified if etag matches" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
 
         printToFile(new File(documentRoot, "allowed2.css")) {
           out =>
@@ -102,7 +102,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
     }
 
     "answer not modified if last modfied has not changed" in {
-      running(FakeApplication()) {
+      running(FakeApplication(path = documentRoot)) {
         printToFile(new File(documentRoot, "allowed3.css")) {
           out =>
             out.print("This is a test")
