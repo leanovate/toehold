@@ -22,7 +22,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
   "FileAssetsController.file" should {
     "be forbidden for everything without an extension" in {
       running(FakeApplication(path = documentRoot)) {
-        val result = FileAssetsController.file("noextension", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("noextension", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual FORBIDDEN
       }
@@ -30,7 +30,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
 
     "be forbidden for everything not on the whitelist" in {
       running(FakeApplication(path = documentRoot)) {
-        val result = FileAssetsController.file("notallowed.php", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("notallowed.php", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual FORBIDDEN
       }
@@ -38,7 +38,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
 
     "be not found for nonexisting files" in {
       running(FakeApplication(path = documentRoot)) {
-        val result = FileAssetsController.file("unknonw.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("unknonw.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual NOT_FOUND
       }
@@ -48,7 +48,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
       running(FakeApplication(path = documentRoot)) {
         new File(documentRoot, "illegal.gif").mkdirs()
 
-        val result = FileAssetsController.file("illegal.gif", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("illegal.gif", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual NOT_FOUND
       }
@@ -62,7 +62,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
             out.print("This is a test")
         }
 
-        val result = FileAssetsController.file("allowed.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("allowed.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual OK
         contentType(result) should beSome("text/css")
@@ -78,13 +78,13 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
             out.print("This is a test")
         }
 
-        val result = FileAssetsController.file("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual OK
         val etag = header(ETAG, result)
         etag should beSome
 
-        val result2 = FileAssetsController.file("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
+        val result2 = FileAssetsController.serveFile("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
           .withHeaders(IF_NONE_MATCH -> etag.get))
 
         status(result2) shouldEqual NOT_MODIFIED
@@ -94,7 +94,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
             out.print("This is a test 2")
         }
 
-        val result3 = FileAssetsController.file("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
+        val result3 = FileAssetsController.serveFile("allowed2.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
           .withHeaders(IF_NONE_MATCH -> etag.get))
 
         status(result3) shouldEqual OK
@@ -108,13 +108,13 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
             out.print("This is a test")
         }
 
-        val result = FileAssetsController.file("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
+        val result = FileAssetsController.serveFile("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest())
 
         status(result) shouldEqual OK
         val date = header(DATE, result)
         date should beSome
 
-        val result2 = FileAssetsController.file("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
+        val result2 = FileAssetsController.serveFile("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
           .withHeaders(IF_MODIFIED_SINCE -> date.get))
 
         status(result2) shouldEqual NOT_MODIFIED
@@ -126,7 +126,7 @@ class FileAssetsControllerSpec extends Specification with ShouldMatchers {
             out.print("This is a test")
         }
 
-        val result3 = FileAssetsController.file("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
+        val result3 = FileAssetsController.serveFile("allowed3.css", Some(documentRoot.getAbsolutePath))(FakeRequest()
           .withHeaders(IF_MODIFIED_SINCE -> date.get))
 
         status(result3) shouldEqual OK

@@ -29,11 +29,7 @@ trait FileAssetsController extends Controller {
 
   private val parsableTimezoneCode = " " + timeZoneCode
 
-  protected val whitelist: Set[String]
-
-  protected val defaultDocumentRoot: String
-
-  def file(path: String, documentRoot: Option[String] = None) = Action {
+  def serveFile(path: String, documentRoot: Option[String] = None) = Action {
     request =>
       val idx = path.lastIndexOf('.')
       if (idx < 0) {
@@ -41,10 +37,10 @@ trait FileAssetsController extends Controller {
       } else {
         val extension = path.substring(idx + 1).toLowerCase
 
-        if (!whitelist.contains(extension)) {
+        if (!settings.fileWhiteList.contains(extension)) {
           Forbidden
         } else {
-          val file = new File(documentRoot.getOrElse(defaultDocumentRoot) + "/" + path)
+          val file = new File(documentRoot.map(new File(_)).getOrElse(settings.documentRoot), path)
 
           if (!file.exists() || !file.isFile) {
             NotFound
@@ -82,12 +78,9 @@ trait FileAssetsController extends Controller {
 
     Codecs.sha1(file.getName + file.lastModified() + file.length())
   }
+
+  protected def settings: FastCGISettings = FastCGIPlugin.settings
 }
 
 object FileAssetsController extends FileAssetsController {
-  protected val whitelist = configuration.getStringList("fastcgi.assets.whitelist").map(_.toSet)
-    .getOrElse(Set("gif", "png", "js", "css", "jpg"))
-
-  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
-
 }

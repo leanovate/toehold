@@ -1,3 +1,9 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.play.fastcgi
 
 import play.api.Plugin
@@ -5,34 +11,57 @@ import play.api.Application
 import akka.actor.{PoisonPill, ActorRef}
 import play.api.libs.concurrent.Akka
 import de.leanovate.akka.fastcgi.FCGIRequestActor
+import play.api.Play._
+import scala.Some
+import java.io.File
+import akka.util.Timeout
+import scala.concurrent.duration._
+import scala.collection.JavaConversions._
 
 class FastCGIPlugin(app: Application) extends Plugin {
   val FASTCGI_ACTOR_NAME = "fastcgiRequest"
 
-  private var _fastCgiRequestActor: Option[ActorRef] = None
+  private var _requestActor: Option[ActorRef] = None
 
-  def fastCgiRequestActor: ActorRef = _fastCgiRequestActor.getOrElse(sys.error("FastCGI plugin not started"))
+  private var _settings: Option[FastCGISettings] = None
+
+  def requestActor: ActorRef = _requestActor.getOrElse(sys.error("FastCGI plugin not started"))
+
+  def settings: FastCGISettings = _settings.getOrElse(sys.error("FastCGI plugin not started"))
 
   override def onStart() {
 
-    val fastCGIHost = app.configuration.getString("fastcgi.host").getOrElse("localhost")
-
-    val fastCGIPort = app.configuration.getInt("fastcgi.port").getOrElse(9001)
-
-    _fastCgiRequestActor = Some(Akka.system(app)
-      .actorOf(FCGIRequestActor.props(fastCGIHost, fastCGIPort), FASTCGI_ACTOR_NAME))
+    val confSettings =
+      FastCGISettings(
+                       documentRoot = configuration.getString("fastcgi.documentRoot").map(new File(_))
+                         .getOrElse(new File("./php")),
+                       timeout = app.configuration.getMilliseconds("fastcgi.timeout")
+                         .map(Timeout.apply).getOrElse(new Timeout(1.minute)),
+                       host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
+                       port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
+                       fileWhiteList = app.configuration.getStringList("fastcgi.assets.whitelist")
+                         .map(_.toSet).getOrElse(Set("gif", "png", "js", "css", "jpg"))
+                     )
+    _settings = Some(confSettings)
+    _requestActor = Some(Akka.system(app)
+      .actorOf(FCGIRequestActor.props(confSettings.host, confSettings.port), FASTCGI_ACTOR_NAME))
   }
 
   override def onStop() {
 
-    _fastCgiRequestActor.foreach(_ ! PoisonPill)
-    _fastCgiRequestActor = None
+    _requestActor.foreach(_ ! PoisonPill)
+    _requestActor = None
+
+    _settings = None
   }
 
   override def enabled = !app.configuration.getString("fastcgi.plugin").filter(_ == "disabled").isDefined
 }
 
 object FastCGIPlugin extends Plugin {
-  def fastCgiRequestActor(implicit app: Application): ActorRef =
-    app.plugin[FastCGIPlugin].map(_.fastCgiRequestActor).getOrElse(sys.error("FastCGI plugin not registers"))
+  def requestActor(implicit app: Application): ActorRef =
+    app.plugin[FastCGIPlugin].map(_.requestActor).getOrElse(sys.error("FastCGI plugin not registered"))
+
+  def settings(implicit app: Application): FastCGISettings =
+    app.plugin[FastCGIPlugin].map(_.settings).getOrElse(sys.error("FastCGI plugin not registered"))
 }

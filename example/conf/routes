@@ -11,4 +11,4 @@ GET         /assets/*file        controllers.Assets.at(path="/public", file)
 GET         /$path<.+>$extension<\.php[345]?>   de.leanovate.play.fastcgi.FastCGIController.serveFromUri(path, extension)
 POST        /$path<.+>$extension<\.php[345]?>   de.leanovate.play.fastcgi.FastCGIController.serveFromUri(path, extension)
 
-GET         /*path               de.leanovate.play.fastcgi.FileAssetsController.file(path)
+GET         /*path               de.leanovate.play.fastcgi.FileAssetsController.serveFile(path)
