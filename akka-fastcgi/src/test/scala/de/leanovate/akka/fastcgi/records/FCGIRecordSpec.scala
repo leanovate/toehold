@@ -38,8 +38,22 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
 
       FCGIRecord.decode(responseData) match {
         case (Some(FCGIEndRequest(id)), remain) =>
-          id should be_==(1)
+          id shouldEqual 1
           remain.isEmpty should beTrue
+        case noMatch =>
+          failure("$noMatch is unexpected")
+      }
+    }
+
+    "decode begin request record" in {
+      val data = ByteString(Hex.decodeHex("0101007b000800000002010000000000".toCharArray))
+
+      FCGIRecord.decode(data) match {
+        case ((Some(FCGIBeginRequest(id, role, keepAlive))), remain) =>
+          id shouldEqual 123
+          role shouldEqual FCGIRoles.FCGI_AUTHORIZER
+          keepAlive should beTrue
+          remain should beEmpty
         case noMatch =>
           failure("$noMatch is unexpected")
       }

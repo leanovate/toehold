@@ -89,6 +89,18 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       there was one(ctrl).resume()
     }
 
+    "close connection immediately if buffer is empty and closeOfRef is true" in new ConnectedMockActor {
+
+      override def closeOnEof = true
+
+      val ctrl = mock[Control]
+
+      outStream.send(EOF, ctrl)
+
+      assertTcpMessages(Tcp.Close)
+      there was noCallsTo(ctrl)
+    }
+
     "close connection if closeOnEof is true and EOF is send to outstream" in new ConnectedMockActor {
       override def closeOnEof = true
 
@@ -121,6 +133,17 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 
       assertTcpMessages()
       there was noCallsTo(ctrl)
+    }
+
+    "eof the in stream and kill itself if connection closes for some reason" in new ConnectedMockActor {
+      override def closeOnEof = false
+
+      mockActor.underlying.isTerminated should beFalse
+
+      mockActor ! Tcp.PeerClosed
+
+      inStream.eof should beTrue
+      mockActor.underlying.isTerminated should beTrue
     }
   }
 

@@ -23,9 +23,9 @@ import akka.actor.ActorRef
 
 trait FastCGIController extends Controller {
   def serveFromUri(path: String, extension: String = "", documentRoot: Option[String] = None): EssentialAction =
-    serve(path + extension, path + extension, documentRoot)
+    serveScript(path + extension, path + extension, documentRoot)
 
-  def serve(scriptName: String, uri: String, documentRoot: Option[String] = None,
+  def serveScript(scriptName: String, uri: String, documentRoot: Option[String] = None,
     additionalEnv: Seq[(String, String)] = Seq.empty) = EssentialAction {
     requestHeader =>
       implicit val timeout = settings.timeout
