@@ -14,17 +14,26 @@ object PhpFpmPlugin extends Plugin {
 
   val phpFpmProcess = AttributeKey[(Process, Thread)]("php-fpm-process")
 
+  val phpFpmBaseDirectory = SettingKey[File]("php-fpm-base-directory")
+
+  val phpFpmListenPort = SettingKey[Int]("php-fpm-listen-port")
+
   def phpFpmSettings =
     Seq(
          phpFpmExecutable := "php-fpm",
 
-         phpFpmConfig <<= (streams, baseDirectory) map {
-           (s, base) =>
+         phpFpmBaseDirectory <<= baseDirectory,
+
+         phpFpmListenPort := 9110,
+
+         phpFpmConfig <<= (streams, phpFpmBaseDirectory, phpFpmListenPort) map {
+           (s, base, listenPort) =>
              val prefix = base / "target" / "php-fpm"
              val dest = prefix / "php-fpm.conf"
              val props = Seq(
                               "baseDirectory" -> base.getAbsolutePath,
-                              "prefix" -> prefix.getAbsolutePath
+                              "prefix" -> prefix.getAbsolutePath,
+                              "listenPort" -> listenPort.toString
                             ).toMap
              IO.transfer(getClass.getResourceAsStream("php-fpm.conf"), dest)
              Filter(s.log, Seq(dest), props)
@@ -90,6 +99,7 @@ object PhpFpmPlugin extends Plugin {
     var processAndTerminator: Option[(Process, Thread)] = None
 
     override def beforeStarted() = {
+
       state.get(phpFpmProcess).getOrElse {
         try {
           val process = createPhpFpmProcess(state.log, base, phpFpmExec, config).run()
@@ -110,6 +120,7 @@ object PhpFpmPlugin extends Plugin {
     }
 
     override def afterStopped(): Unit = {
+
       processAndTerminator.map {
         case (process, terminator) =>
           process.destroy()

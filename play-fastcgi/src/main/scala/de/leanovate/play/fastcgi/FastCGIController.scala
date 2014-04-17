@@ -21,14 +21,13 @@ import akka.pattern.ask
 import de.leanovate.play.tcp.{IterateeAdapter, EnumeratorAdapter}
 import de.leanovate.akka.tcp.AttachablePMStream
 import de.leanovate.akka.fastcgi.framing.Framing
+import akka.actor.ActorRef
+import de.leanovate.akka.fastcgi.FCGIRequestActor
 
-object FastCGIController extends Controller {
-  implicit val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
-    .getOrElse(60.seconds))
+trait FastCGIController extends Controller {
+  implicit val fastGGITimeout: Timeout
 
-  val fastCGIActor = Akka.system.actorSelection("/user/" + FastCGISupport.FASTCGI_ACTOR_NAME)
-
-  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+  protected val defaultDocumentRoot: String
 
   def serve(path: String, extension: String, documentRoot: Option[String] = None) = EssentialAction {
     requestHeader =>
@@ -47,7 +46,7 @@ object FastCGIController extends Controller {
                                                   Some(requestContent)
                                                 )
               val resultPromise = Promise[SimpleResult]()
-              (fastCGIActor ? request).map {
+              (FastCGIPlugin.fastCgiRequestActor ? request).map {
                 case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
                   val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
                   resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum))
@@ -76,7 +75,7 @@ object FastCGIController extends Controller {
 
         Iteratee.ignore[Array[Byte]].mapM {
           _ =>
-            (fastCGIActor ? request).map {
+            (FastCGIPlugin.fastCgiRequestActor ? request).map {
               case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
                 val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
                 SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
@@ -86,4 +85,11 @@ object FastCGIController extends Controller {
         }
       }
   }
+}
+
+object FastCGIController extends FastCGIController {
+  val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
+    .getOrElse(60.seconds))
+
+  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
 }
