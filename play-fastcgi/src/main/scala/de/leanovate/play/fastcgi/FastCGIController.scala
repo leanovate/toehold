@@ -7,7 +7,6 @@
 package de.leanovate.play.fastcgi
 
 import play.api.mvc.{ResponseHeader, SimpleResult, EssentialAction, Controller}
-import play.api.libs.concurrent.Akka
 import play.api.Play.current
 import play.api.Play.configuration
 import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
@@ -21,15 +20,18 @@ import akka.pattern.ask
 import de.leanovate.play.tcp.{IterateeAdapter, EnumeratorAdapter}
 import de.leanovate.akka.tcp.AttachablePMStream
 import de.leanovate.akka.fastcgi.framing.Framing
-import akka.actor.ActorRef
-import de.leanovate.akka.fastcgi.FCGIRequestActor
+import java.io.File
 
 trait FastCGIController extends Controller {
   implicit val fastGGITimeout: Timeout
 
-  protected val defaultDocumentRoot: String
+  protected val defaultDocumentRoot: File
 
-  def serve(path: String, extension: String, documentRoot: Option[String] = None) = EssentialAction {
+  def serveFromUri(path: String, extension: String = "", documentRoot: Option[String] = None): EssentialAction =
+    serve(path + extension, path + extension, documentRoot)
+
+  def serve(scriptName: String, uri: String, documentRoot: Option[String] = None,
+    additionalEnv: Seq[(String, String)] = Seq.empty) = EssentialAction {
     requestHeader =>
       requestHeader.contentType.map {
         contentType =>
@@ -39,10 +41,12 @@ trait FastCGIController extends Controller {
               val requestContent = FCGIRequestContent(contentType, contentLength.toLong, requestContentStream)
               val request = FCGIResponderRequest(
                                                   requestHeader.method,
-                                                  "/" + path + extension,
+                                                  "/" + scriptName,
+                                                  "/" + uri,
                                                   requestHeader.rawQueryString,
-                                                  documentRoot.getOrElse(defaultDocumentRoot),
+                                                  documentRoot.map(new File(_)).getOrElse(defaultDocumentRoot),
                                                   requestHeader.headers.toMap,
+                                                  additionalEnv,
                                                   Some(requestContent)
                                                 )
               val resultPromise = Promise[SimpleResult]()
@@ -66,10 +70,12 @@ trait FastCGIController extends Controller {
       }.getOrElse {
         val request = FCGIResponderRequest(
                                             requestHeader.method,
-                                            "/" + path + extension,
+                                            "/" + scriptName,
+                                            "/" + uri,
                                             requestHeader.rawQueryString,
-                                            documentRoot.getOrElse(defaultDocumentRoot),
+                                            documentRoot.map(new File(_)).getOrElse(defaultDocumentRoot),
                                             requestHeader.headers.toMap,
+                                            additionalEnv,
                                             None
                                           )
 
@@ -91,5 +97,6 @@ object FastCGIController extends FastCGIController {
   val fastGGITimeout = Timeout(configuration.getMilliseconds("fastcgi.timeout").map(_.milliseconds)
     .getOrElse(60.seconds))
 
-  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").map(new File(_))
+    .getOrElse(new File("./php"))
 }

@@ -16,7 +16,7 @@ import play.api.libs.Codecs
 import play.api.Play.current
 import play.api.Play.configuration
 
-object FileAssetsController extends Controller {
+trait FileAssetsController extends Controller {
   private val timeZoneCode = "GMT"
 
   private val df: DateTimeFormatter =
@@ -29,10 +29,9 @@ object FileAssetsController extends Controller {
 
   private val parsableTimezoneCode = " " + timeZoneCode
 
-  protected val whitelist = configuration.getStringList("fastcgi.assets.whitelist").map(_.toSet)
-    .getOrElse(Set("gif", "png", "js", "css", "jpg"))
+  protected val whitelist: Set[String]
 
-  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+  protected val defaultDocumentRoot: String
 
   def file(path: String, documentRoot: Option[String] = None) = Action {
     request =>
@@ -83,4 +82,12 @@ object FileAssetsController extends Controller {
 
     Codecs.sha1(file.getName + file.lastModified() + file.length())
   }
+}
+
+object FileAssetsController extends FileAssetsController {
+  protected val whitelist = configuration.getStringList("fastcgi.assets.whitelist").map(_.toSet)
+    .getOrElse(Set("gif", "png", "js", "css", "jpg"))
+
+  protected val defaultDocumentRoot = configuration.getString("fastcgi.documentRoot").getOrElse("./php")
+
 }

@@ -13,13 +13,16 @@ import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
 import scala.concurrent.ExecutionContext
 import de.leanovate.akka.tcp.PMStream
 import de.leanovate.akka.fastcgi.framing.Framing
+import java.io.File
 
 case class FCGIResponderRequest(
   method: String,
-  path: String,
+  scriptName: String,
+  uri: String,
   query: String,
-  documentRoot: String,
+  documentRoot: File,
   headers: Map[String, Seq[String]],
+  additionalEnv: Seq[(String, String)],
   optContent: Option[FCGIRequestContent]
   ) {
 
@@ -28,13 +31,13 @@ case class FCGIResponderRequest(
     val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive = false)
     val params = FCGIParams(id, (
       Seq(
-           "SCRIPT_FILENAME" -> (documentRoot + path),
+           "SCRIPT_FILENAME" -> (documentRoot.getCanonicalPath + scriptName),
            "QUERY_STRING" -> query,
            "REQUEST_METHOD" -> method,
-           "SCRIPT_NAME" -> path,
-           "REQUEST_URI" -> path,
-           "DOCUMENT_URI" -> path,
-           "DOCUMENT_ROOT" -> documentRoot,
+           "SCRIPT_NAME" -> scriptName,
+           "REQUEST_URI" -> uri,
+           "DOCUMENT_URI" -> uri,
+           "DOCUMENT_ROOT" -> documentRoot.getCanonicalPath,
            "SERVER_PROTOCOL" -> "HTTP/1.1",
            "GATEWAY_INTERFACE" -> "CGI/1.1"
          ) ++
@@ -48,7 +51,8 @@ case class FCGIResponderRequest(
         headers.map {
           case (name, value) =>
             "HTTP_" + name.toUpperCase.replace('-', '_') -> value.mkString(",")
-        }.toSeq
+        }.toSeq ++
+        additionalEnv
       ).map(e => ByteString(e._1) -> ByteString(e._2)))
 
     out.push(beginRquest, params, FCGIParams(id, Seq.empty))
