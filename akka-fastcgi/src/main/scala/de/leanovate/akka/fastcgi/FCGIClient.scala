@@ -26,7 +26,6 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
       if (log.isDebugEnabled) {
         log.debug(s"Connected $localAddress -> $remoteAddress")
       }
-      sender ! Register(self)
       val in = new AttachablePMStream[ByteString]
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>

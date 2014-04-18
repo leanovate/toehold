@@ -73,22 +73,52 @@ trait PMStream[A] {
 
 object PMStream {
 
+  /**
+   * Abstraction of a chunk transmitted to a stream.
+   */
   sealed trait Chunk[+A]
 
+  /**
+   * An actual chunk of data.
+   */
   case class Data[A](data: A) extends Chunk[A]
 
+  /**
+   * The EOF marker.
+   */
   case object EOF extends Chunk[Nothing]
 
+  /**
+   * Abstraction of stream control (i.e. back-pressure handling).
+   */
   trait Control {
+    /**
+     * Resume reading (i.e. resume pushing more chunks to the stream).
+     */
     def resume()
 
+    /**
+     * Abort reading (i.e. interrupt the transmission asap).
+     */
     def abort(msg: String)
   }
 
+  /**
+   * Little helper if there is no stream control whatsoever.
+   * E.g. when all the data is already fully in memory.
+   */
   object NoControl extends Control {
     override def resume() {}
 
     override def abort(msg: String) {}
   }
 
+  /**
+   * Little helper to create a /dev/null sink.
+   */
+  def nullStream[A] = new PMStream[A] {
+    override def send(chunk: Chunk[A], ctrl: Control) {
+      ctrl.resume()
+    }
+  }
 }

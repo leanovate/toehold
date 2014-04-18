@@ -9,7 +9,7 @@ package de.leanovate.akka.tcp
 import akka.actor.{ActorLogging, Actor, ActorRef}
 import akka.util.ByteString
 import akka.io.Tcp
-import akka.io.Tcp.{Event, ConnectionClosed, Received}
+import akka.io.Tcp.{Register, Event, ConnectionClosed, Received}
 import akka.event.LoggingAdapter
 import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
 import scala.concurrent.stm._
@@ -25,6 +25,18 @@ trait TcpConnectedState extends ActorLogging {
 
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean): PMStream[ByteString] = {
+
+    val ( connected, outPMStream ) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof)
+
+    connection ! Register(self)
+
+    context become connected
+    outPMStream
+  }
+
+  def connectedState(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    connection: ActorRef, inStream: PMStream[ByteString],
+    closeOnEof: Boolean): (Actor.Receive, PMStream[ByteString]) = {
 
     val outPMStram = new TcpConnectedState.OutPMStream(remoteAddress, localAddress, log, connection, closeOnEof)
 
@@ -55,14 +67,14 @@ trait TcpConnectedState extends ActorLogging {
         context stop self
     }
 
-    context become connected
-    outPMStram
+    (connected, outPMStram)
   }
 }
 
 object TcpConnectedState {
 
-  private class ConnectionControl(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter, connection: ActorRef)(implicit sender: ActorRef)
+  private class ConnectionControl(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    log: LoggingAdapter, connection: ActorRef)(implicit sender: ActorRef)
     extends Control {
     override def resume() {
 
@@ -79,7 +91,8 @@ object TcpConnectedState {
     }
   }
 
-  private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter, connection: ActorRef, closeOnEof: Boolean)(implicit sender: ActorRef)
+  private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter,
+    connection: ActorRef, closeOnEof: Boolean)(implicit sender: ActorRef)
     extends PMStream[ByteString] {
     private val pending = Ref[Option[(Seq[Chunk[ByteString]], Control)]](None)
 

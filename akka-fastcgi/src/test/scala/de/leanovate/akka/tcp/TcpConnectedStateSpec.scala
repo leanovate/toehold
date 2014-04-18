@@ -173,6 +173,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
                                      closeOnEof)
 
     val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+    assertTcpMessages(Tcp.Register(mockActor))
 
     def assertTcpMessages(msgs: Any*) = {
 
