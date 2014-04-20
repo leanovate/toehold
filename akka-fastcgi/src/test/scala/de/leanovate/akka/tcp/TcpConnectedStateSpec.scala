@@ -151,8 +151,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
     implicit val system =
       ActorSystem("TestSystem", ConfigFactory.parseString( """akka.loglevel = "DEBUG"
                                                              |akka.loggers = ["akka.testkit.TestEventListener"]"""
-        .stripMargin)
-                 )
+        .stripMargin))
 
     val sender = TestProbe()
 
@@ -173,6 +172,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
                                      closeOnEof)
 
     val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+
     assertTcpMessages(Tcp.Register(mockActor))
 
     def assertTcpMessages(msgs: Any*) = {
@@ -190,6 +190,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       TestKit.shutdownActorSystem(system)
     }
   }
+
 }
 
 object TcpConnectedStateSpec {

@@ -22,7 +22,12 @@ object PMPipe {
 
         chunk match {
           case Data(data) =>
-            target.send(Data(f(data)), ctrl)
+            try {
+              target.send(Data(f(data)), ctrl)
+            } catch {
+              case e: Exception =>
+                ctrl.abort(e.getMessage)
+            }
           case EOF =>
             target.send(EOF, ctrl)
         }
@@ -32,7 +37,13 @@ object PMPipe {
 
   def mapChunk[From, To](f: Chunk[From] => Chunk[To]) = new PMPipe[From, To] {
     override def |>(target: PMStream[To]) = new PMStream[From] {
-      override def send(chunk: Chunk[From], ctrl: Control) = target.send(f(chunk), ctrl)
+      override def send(chunk: Chunk[From], ctrl: Control) =
+        try {
+          target.send(f(chunk), ctrl)
+        } catch {
+          case e: Exception =>
+            ctrl.abort(e.getMessage)
+        }
     }
   }
 
@@ -40,7 +51,12 @@ object PMPipe {
     override def |>(target: PMStream[To]) = new PMStream[From] {
       override def send(chunk: Chunk[From], ctrl: Control) = {
 
-        target.sendSeq(f(chunk), ctrl)
+        try {
+          target.sendSeq(f(chunk), ctrl)
+        } catch {
+          case e: Exception =>
+            ctrl.abort(e.getMessage)
+        }
       }
     }
   }
