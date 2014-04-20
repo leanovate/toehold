@@ -8,7 +8,7 @@ import play.Project._
 import scala.Some
 
 object PhpFpmPlugin extends Plugin {
-  val phpFpmExecutable = SettingKey[String]("php-fpm-executable")
+  val phpFpmExecutables = SettingKey[Seq[String]]("php-fpm-executables")
 
   val phpFpmConfig = TaskKey[File]("php-fpm-config")
 
@@ -22,7 +22,7 @@ object PhpFpmPlugin extends Plugin {
 
   def phpFpmSettings =
     Seq(
-         phpFpmExecutable := "php-fpm",
+         phpFpmExecutables := Seq("/usr/sbin/php-fpm", "/usr/sbin/php5-fpm"),
 
          phpFpmBaseDirectory <<= baseDirectory,
 
@@ -45,22 +45,24 @@ object PhpFpmPlugin extends Plugin {
              dest
          },
 
-         commands <++= (baseDirectory, phpFpmExecutable) {
-           (base, phpFpmExec) => Seq(startPhpFpmCommand(base, phpFpmExec), stopPhpFpmProcess(base))
+         commands <++= (baseDirectory, phpFpmExecutables) {
+           (base, phpFpmExecs) => Seq(startPhpFpmCommand(base, phpFpmExecs), stopPhpFpmProcess(base))
          },
 
-         playRunHooks <+= (state, streams, baseDirectory, phpFpmExecutable, phpFpmConfig).map {
-           (state, stream, base, phpFpmExec, config) => phpFpmRunHook(state, stream.log, base, phpFpmExec, config)
+         playRunHooks <+= (state, streams, baseDirectory, phpFpmExecutables, phpFpmConfig).map {
+           (state, stream, base, phpFpmExecs, config) => phpFpmRunHook(state, stream.log, base, phpFpmExecs, config)
          }
        )
 
-  def createPhpFpmProcess(log: Logger, base: File, phpFpmExec: String, config: File, args: String*) = {
-
-    log.info(s"Running $phpFpmExec --fpm-config ${config.getAbsolutePath} ${args.mkString(" ")}")
-    Process(phpFpmExec :: "--fpm-config" :: config.getAbsolutePath :: args.toList, base)
+  def createPhpFpmProcess(log: Logger, base: File, phpFpmExecs: Seq[String], config: File, args: String*) = {
+    phpFpmExecs.find(new File(_).canExecute).map {
+      phpFpmExec =>
+        log.info(s"Running $phpFpmExec --fpm-config ${config.getAbsolutePath} ${args.mkString(" ")}")
+        Process(phpFpmExec :: "--fpm-config" :: config.getAbsolutePath :: args.toList, base)
+    }
   }
 
-  def startPhpFpmCommand(base: File, phpFpmExec: String): Command = Command.args("start-php-fpm", "<args>") {
+  def startPhpFpmCommand(base: File, phpFpmExecs: Seq[String]): Command = Command.args("start-php-fpm", "<args>") {
     (state, args) =>
       state.get(phpFpmProcess).map {
         _ =>
@@ -70,16 +72,21 @@ object PhpFpmPlugin extends Plugin {
         try {
           val project = Project.extract(state)
           val (nextState, config) = project.runTask(phpFpmConfig, state)
-          val process = createPhpFpmProcess(state.log, base, phpFpmExec, config, args: _*).run()
-          val terminator = new Thread {
-            override def run() {
+          createPhpFpmProcess(state.log, base, phpFpmExecs, config, args: _*).map {
+            processBuilder =>
+              val process = processBuilder.run()
+              val terminator = new Thread {
+                override def run() {
+                  process.destroy()
+                }
+              }
+              java.lang.Runtime.getRuntime.addShutdownHook(terminator)
 
-              process.destroy()
-            }
+              nextState.put(phpFpmProcess, (process, terminator))
+          }.getOrElse {
+            state.log.warn(s"No executable found for php-fpm")
+            state
           }
-          java.lang.Runtime.getRuntime.addShutdownHook(terminator)
-
-          nextState.put(phpFpmProcess, (process, terminator))
         } catch {
           case e: Exception =>
             state.log.warn(s"Unable to start php-fpm process: ${e.getMessage}")
@@ -98,7 +105,7 @@ object PhpFpmPlugin extends Plugin {
       }.getOrElse(state)
   }
 
-  def phpFpmRunHook(state: State, log: Logger, base: File, phpFpmExec: String, config: File) = new PlayRunHook {
+  def phpFpmRunHook(state: State, log: Logger, base: File, phpFpmExecs: Seq[String], config: File) = new PlayRunHook {
 
     var processAndTerminator: Option[(Process, Thread)] = None
 
@@ -106,15 +113,20 @@ object PhpFpmPlugin extends Plugin {
 
       state.get(phpFpmProcess).getOrElse {
         try {
-          val process = createPhpFpmProcess(state.log, base, phpFpmExec, config).run()
-          val terminator = new Thread {
-            override def run() {
-
-              process.destroy()
-            }
+          createPhpFpmProcess(state.log, base, phpFpmExecs, config).map {
+            processBuilder =>
+              val process = processBuilder.run()
+              val terminator = new Thread {
+                override def run() {
+                  process.destroy()
+                }
+              }
+              java.lang.Runtime.getRuntime.addShutdownHook(terminator)
+              processAndTerminator = Some(process, terminator)
+          }.getOrElse {
+            state.log.warn(s"No executable found for php-fpm")
+            state
           }
-          java.lang.Runtime.getRuntime.addShutdownHook(terminator)
-          processAndTerminator = Some(process, terminator)
         } catch {
           case e: Exception =>
             state.log.warn(s"Unable to start php-fpm process: ${e.getMessage}")
@@ -132,6 +144,5 @@ object PhpFpmPlugin extends Plugin {
       }
       processAndTerminator = None
     }
-
   }
 }
