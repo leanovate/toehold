@@ -69,6 +69,7 @@ trait TcpConnectedState extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress inner write ack")
         }
+        writeDeadline.single.set(None)
 
         outPMStram.acknowledge()
 
@@ -123,29 +124,11 @@ trait TcpConnectedState extends ActorLogging {
 
   private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, closeOnEof: Boolean) extends PMStream[ByteString] {
-    private val pending = Ref[Option[(Seq[Chunk[ByteString]], Control)]](None)
+    private val writeBuffer = new WriteBuffer(remoteAddress, localAddress, log)
 
     def acknowledge() {
 
-      def takeChunk(state: Option[(Seq[Chunk[ByteString]], Control)]): Option[(Seq[Chunk[ByteString]], Control)] =
-        state match {
-          case Some((chunks, _)) if chunks.isEmpty =>
-            if (log.isDebugEnabled) {
-              log.debug(s"$localAddress -> $remoteAddress take last control from buffer")
-            }
-            None
-          case Some((chunks, ctrl)) =>
-            if (log.isDebugEnabled) {
-              log.debug(s"$localAddress -> $remoteAddress take chunk from buffer")
-            }
-            Some(chunks.drop(1), ctrl)
-          case None =>
-            if (log.isDebugEnabled) {
-              log.debug(s"$localAddress -> $remoteAddress buffer empty")
-            }
-            None
-        }
-      pending.single.getAndTransform(takeChunk) match {
+      writeBuffer.takeChunk() match {
         case None =>
           log.error(s"$localAddress -> $remoteAddress write ack without pending")
         case Some((chunks, ctrl)) if chunks.isEmpty =>
@@ -174,26 +157,7 @@ trait TcpConnectedState extends ActorLogging {
 
     override def send(chunk: Chunk[ByteString], ctrl: Control) {
 
-      def appendChunk(state: Option[(Seq[Chunk[ByteString]], Control)]): Option[(Seq[Chunk[ByteString]], Control)] =
-        state match {
-          case Some((chunks, _)) =>
-            if (log.isDebugEnabled) {
-              log.debug(s"$localAddress -> $remoteAddress push chunk to buffer")
-            }
-            (chunks, chunk) match {
-              case (Seq(Data(remain)), Data(next)) =>
-                Some(Seq(Data(remain ++ next)), ctrl)
-              case _ =>
-                Some(chunks :+ chunk, ctrl)
-            }
-          case None =>
-            if (log.isDebugEnabled) {
-              log.debug(s"$localAddress -> $remoteAddress push control to buffer")
-            }
-            Some(Seq.empty, ctrl)
-        }
-
-      pending.single.getAndTransform(appendChunk) match {
+      writeBuffer.appendChunk(chunk, ctrl) match {
         case None =>
           chunk match {
             case Data(data) =>
