@@ -8,8 +8,10 @@ import de.leanovate.akka.fastcgi.records.FCGIRecord
 import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectedState}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
+import scala.concurrent.duration.FiniteDuration
 
-class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) extends Actor with TcpConnectedState {
+class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, handler: FCGIConnectionHandler)
+  extends Actor with TcpConnectedState {
 
   import context.system
 
@@ -47,10 +49,9 @@ class FCGIClient(remote: InetSocketAddress, handler: FCGIConnectionHandler) exte
 }
 
 object FCGIClient {
-  def props(hostname: String, port: Int, handler: FCGIConnectionHandler) =
-    Props(classOf[FCGIClient], new InetSocketAddress(hostname, port), handler)
+  def props(hostname: String, port: Int, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
+    Props(classOf[FCGIClient], new InetSocketAddress(hostname, port), idleTimeout, handler)
 
-  def props(remote: InetSocketAddress, handler: FCGIConnectionHandler) =
-    Props(classOf[FCGIClient], remote, handler)
-
+  def props(remote: InetSocketAddress, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
+    Props(classOf[FCGIClient], remote, idleTimeout, handler)
 }

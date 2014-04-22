@@ -21,6 +21,7 @@ import org.specs2.mock.Mockito
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.SECONDS
 import com.typesafe.config.ConfigFactory
+import scala.concurrent.duration._
 
 class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mockito {
 
@@ -199,6 +200,8 @@ object TcpConnectedStateSpec {
     inStream: PMStream[ByteString], closeOnEof: Boolean)
 
   class MockActor extends Actor with TcpConnectedState {
+    val idleTimeout = 20.seconds
+
     override def receive = {
 
       case Connect(remote, local, connection, inStream, closeOnEof) =>

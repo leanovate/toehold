@@ -7,19 +7,33 @@
 package de.leanovate.akka.fastcgi
 
 import akka.actor._
-import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIResponderRequest}
+import de.leanovate.akka.fastcgi.request._
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
 import de.leanovate.akka.tcp.{AttachablePMStream, PMStream}
+import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
+import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
+import de.leanovate.akka.fastcgi.request.FCGIResponderError
+import akka.actor.Terminated
+import de.leanovate.akka.tcp.AttachablePMStream
+import scala.concurrent.duration.FiniteDuration
 
-class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging {
+class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) extends Actor with ActorLogging {
 
   import context.dispatcher
 
+  var openConnections: Int = 0
+
+  context.system.eventStream.subscribe(self, classOf[FCGIResponderSuccess])
+
   override def receive = {
 
+    case FCGIQueryStatus =>
+      sender ! FCGIStatus(openConnections)
+
     case request: FCGIResponderRequest =>
+      openConnections += 1
       newClient(request, sender)
 
     case deadResponse: FCGIResponderSuccess =>
@@ -29,6 +43,7 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
       if (log.isDebugEnabled) {
         log.debug(s"FCGIClient terminated $client")
       }
+      openConnections -= 1
   }
 
   private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
@@ -51,16 +66,16 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
       }
     }
 
-    val client = context.actorOf(FCGIClient.props(host, port, handler))
+    val client = context.actorOf(FCGIClient.props(host, port, idleTimeout, handler))
     if (log.isDebugEnabled) {
       log.debug(s"New FCGIClient $client")
     }
-    context.system.eventStream.subscribe(self, classOf[FCGIResponderSuccess])
     context.watch(client)
     client
   }
 }
 
 object FCGIRequestActor {
-  def props(host: String, port: Int) = Props(classOf[FCGIRequestActor], host, port)
+  def props(host: String, port: Int, idleTimeout: FiniteDuration) =
+    Props(classOf[FCGIRequestActor], host, port, idleTimeout)
 }

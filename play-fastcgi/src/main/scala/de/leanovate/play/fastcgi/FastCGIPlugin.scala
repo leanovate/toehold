@@ -17,6 +17,7 @@ import java.io.File
 import akka.util.Timeout
 import scala.concurrent.duration._
 import scala.collection.JavaConversions._
+import java.util.concurrent.TimeUnit
 
 class FastCGIPlugin(app: Application) extends Plugin {
   val FASTCGI_ACTOR_NAME = "fastcgiRequest"
@@ -35,8 +36,10 @@ class FastCGIPlugin(app: Application) extends Plugin {
       FastCGISettings(
                        documentRoot = configuration.getString("fastcgi.documentRoot").map(new File(_))
                          .getOrElse(new File("./php")),
-                       timeout = app.configuration.getMilliseconds("fastcgi.timeout")
+                       requestTimeout = app.configuration.getMilliseconds("fastcgi.requestTimeout")
                          .map(Timeout.apply).getOrElse(new Timeout(1.minute)),
+                       idleTimeout = app.configuration.getMilliseconds("fastcgi.idleTimeout")
+                         .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS)).getOrElse(20.seconds),
                        host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
                        port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
                        fileWhiteList = app.configuration.getStringList("fastcgi.assets.whitelist")
@@ -44,7 +47,8 @@ class FastCGIPlugin(app: Application) extends Plugin {
                      )
     _settings = Some(confSettings)
     _requestActor = Some(Akka.system(app)
-      .actorOf(FCGIRequestActor.props(confSettings.host, confSettings.port), FASTCGI_ACTOR_NAME))
+      .actorOf(FCGIRequestActor.props(confSettings.host, confSettings.port, confSettings.idleTimeout),
+        FASTCGI_ACTOR_NAME))
   }
 
   override def onStop() {

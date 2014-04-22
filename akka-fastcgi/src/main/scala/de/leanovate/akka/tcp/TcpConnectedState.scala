@@ -24,6 +24,14 @@ import scala.concurrent.duration._
 trait TcpConnectedState extends ActorLogging {
   actor: Actor =>
 
+  def idleTimeout: FiniteDuration
+
+  val readDeadline = Ref[Option[Deadline]](None)
+
+  val writeDeadline = Ref[Option[Deadline]](None)
+
+  var tickGenerator: Option[Cancellable] = None
+
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean): PMStream[ByteString] = {
 
@@ -37,24 +45,11 @@ trait TcpConnectedState extends ActorLogging {
 
   def connectedState(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, inStream: PMStream[ByteString],
-    closeOnEof: Boolean, idleTimeout: FiniteDuration = 10 seconds): (Actor.Receive, PMStream[ByteString]) = {
+    closeOnEof: Boolean): (Actor.Receive, PMStream[ByteString]) = {
 
-    val readDeadline = Ref[Option[Deadline]](None)
-    val writeDeadline = Ref[Option[Deadline]](None)
-    var tickGenerator: Option[Cancellable] = None
+    val outPMStram = new OutPMStream(remoteAddress, localAddress, connection, closeOnEof)
 
-    val outPMStram = new
-        TcpConnectedState.OutPMStream(remoteAddress, localAddress, log, connection, closeOnEof, writeDeadline,
-                                       idleTimeout)
-
-    val connectionControl = new
-        TcpConnectedState.ConnectionControl(remoteAddress, localAddress, log, connection, readDeadline)
-
-    def scheduleTick() {
-
-      tickGenerator = Some(context.system.scheduler
-        .scheduleOnce(1 second, self, TcpConnectedState.Tick)(context.dispatcher))
-    }
+    val connectionControl = new ConnectionControl(remoteAddress, localAddress, connection)
 
     def connected: Actor.Receive = {
 
@@ -97,13 +92,15 @@ trait TcpConnectedState extends ActorLogging {
 
     (connected, outPMStram)
   }
-}
 
-object TcpConnectedState {
+  private def scheduleTick() {
+
+    tickGenerator = Some(context.system.scheduler
+      .scheduleOnce(1 second, self, TcpConnectedState.Tick)(context.dispatcher))
+  }
 
   private class ConnectionControl(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    log: LoggingAdapter, connection: ActorRef, readDeadline: Ref[Option[Deadline]])
-    (implicit sender: ActorRef) extends Control {
+    connection: ActorRef) extends Control {
     override def resume() {
 
       if (log.isDebugEnabled) {
@@ -121,9 +118,8 @@ object TcpConnectedState {
     }
   }
 
-  private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter,
-    connection: ActorRef, closeOnEof: Boolean, writeDeadline: Ref[Option[Deadline]], idleTimeout: FiniteDuration)
-    (implicit sender: ActorRef) extends PMStream[ByteString] {
+  private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    connection: ActorRef, closeOnEof: Boolean) extends PMStream[ByteString] {
     private val pending = Ref[Option[(Seq[Chunk[ByteString]], Control)]](None)
 
     def acknowledge() {
@@ -161,7 +157,7 @@ object TcpConnectedState {
                 log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
               }
               writeDeadline.single.set(Some(Deadline.now + idleTimeout))
-              connection ! Tcp.Write(data, WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -202,7 +198,7 @@ object TcpConnectedState {
                 log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
               }
               writeDeadline.single.set(Some(Deadline.now + idleTimeout))
-              connection ! Tcp.Write(data, WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -215,6 +211,10 @@ object TcpConnectedState {
       }
     }
   }
+
+}
+
+object TcpConnectedState {
 
   private[tcp] case object WriteAck extends Event
 

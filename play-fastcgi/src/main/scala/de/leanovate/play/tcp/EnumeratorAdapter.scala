@@ -25,7 +25,7 @@ object EnumeratorAdapter {
           case Data(data) =>
             feed(Input.El(data), ctrl)
           case EOF =>
-            resultIteratee.completeWith(feed(Input.EOF, PMStream.NoControl))
+            resultIteratee.completeWith(feed(Input.EOF, ctrl))
         }
       }
 

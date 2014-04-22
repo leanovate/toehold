@@ -6,20 +6,26 @@
 
 package de.leanovate.play.fastcgi
 
-import play.api.mvc.{ResponseHeader, SimpleResult, EssentialAction, Controller}
+import play.api.mvc._
 import play.api.Play.current
-import de.leanovate.akka.fastcgi.request.{FCGIResponderError, FCGIResponderSuccess, FCGIRequestContent, FCGIResponderRequest}
+import de.leanovate.akka.fastcgi.request._
 import akka.util.ByteString
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.iteratee.Iteratee
-import scala.Some
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import akka.pattern.ask
 import de.leanovate.play.tcp.{IterateeAdapter, EnumeratorAdapter}
-import de.leanovate.akka.tcp.AttachablePMStream
 import de.leanovate.akka.fastcgi.framing.Framing
 import java.io.File
 import akka.actor.ActorRef
+import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
+import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
+import de.leanovate.akka.fastcgi.request.FCGIResponderError
+import scala.Some
+import de.leanovate.akka.tcp.AttachablePMStream
+import play.api.mvc.SimpleResult
+import play.api.mvc.ResponseHeader
+import play.api.libs.json.{JsNumber, JsObject}
 
 trait FastCGIController extends Controller {
   def serveFromUri(path: String, extension: String = "", documentRoot: Option[String] = None): EssentialAction =
@@ -28,7 +34,7 @@ trait FastCGIController extends Controller {
   def serveScript(scriptName: String, uri: String, documentRoot: Option[String] = None,
     additionalEnv: Seq[(String, String)] = Seq.empty) = EssentialAction {
     requestHeader =>
-      implicit val timeout = settings.timeout
+      implicit val timeout = settings.requestTimeout
       requestHeader.contentType.map {
         contentType =>
           requestHeader.headers.get("content-length").map {
@@ -45,18 +51,10 @@ trait FastCGIController extends Controller {
                                                   additionalEnv,
                                                   Some(requestContent)
                                                 )
-              val resultPromise = Promise[SimpleResult]()
-              (requestActor ? request).map {
-                case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                  val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
-                  resultPromise.success(SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum))
-                case FCGIResponderError(msg) =>
-                  resultPromise.success(InternalServerError(msg))
-              }
+              val resultFuture = requestActor ? request
 
               IterateeAdapter.adapt(Framing.byteArrayToByteString |> requestContentStream).mapM {
-                _ =>
-                  resultPromise.future
+                _ => mapResultFuture(resultFuture)
               }
           }.getOrElse {
             Iteratee.ignore[Array[Byte]].map {
@@ -74,18 +72,31 @@ trait FastCGIController extends Controller {
                                             additionalEnv,
                                             None
                                           )
+        val resultFuture = requestActor ? request
 
         Iteratee.ignore[Array[Byte]].mapM {
-          _ =>
-            (requestActor ? request).map {
-              case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
-                val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
-                SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
-              case FCGIResponderError(msg) =>
-                InternalServerError(msg)
-            }
+          _ => mapResultFuture(resultFuture)
         }
       }
+  }
+
+  def status = Action.async {
+    implicit val timeout = settings.requestTimeout
+    (requestActor ? FCGIQueryStatus).map {
+      case status: FCGIStatus =>
+        Ok(JsObject(Seq("openConnections" -> JsNumber(status.openConnections))))
+    }
+  }
+
+  protected def mapResultFuture(resultFuture: Future[Any]): Future[SimpleResult] = {
+
+    resultFuture.map {
+      case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
+        val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
+        SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
+      case FCGIResponderError(msg) =>
+        InternalServerError(msg)
+    }
   }
 
   protected def settings: FastCGISettings = FastCGIPlugin.settings
