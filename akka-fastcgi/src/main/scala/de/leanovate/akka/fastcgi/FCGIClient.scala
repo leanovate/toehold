@@ -41,6 +41,10 @@ class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, han
       handler.connected(PMPipe.map[FCGIRecord, ByteString](_.encode) |> outStream)
   }
 
+  override def becomeDisconnected() {
+    context stop self
+  }
+
   private def stderrToLog(stderr: ByteString) {
 
     log.error(s"Stderr: ${stderr.utf8String}")

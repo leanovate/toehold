@@ -10,7 +10,6 @@ import akka.actor.{Cancellable, ActorLogging, Actor, ActorRef}
 import akka.util.ByteString
 import akka.io.Tcp
 import akka.io.Tcp.{Register, Event, ConnectionClosed, Received}
-import akka.event.LoggingAdapter
 import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
 import scala.concurrent.stm._
 import java.net.InetSocketAddress
@@ -25,6 +24,8 @@ trait TcpConnectedState extends ActorLogging {
   actor: Actor =>
 
   def idleTimeout: FiniteDuration
+
+  def becomeDisconnected()
 
   val readDeadline = Ref[Option[Deadline]](None)
 
@@ -63,12 +64,14 @@ trait TcpConnectedState extends ActorLogging {
         connection ! Tcp.SuspendReading
 
         inStream.send(PMStream.Data(data), connectionControl)
+
       case TcpConnectedState.WriteAck =>
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress inner write ack")
         }
 
         outPMStram.acknowledge()
+
       case TcpConnectedState.Tick =>
         if (readDeadline.single.get.exists(_.isOverdue())) {
           log.error(s"$localAddress -> $remoteAddress read timeout")
@@ -85,7 +88,7 @@ trait TcpConnectedState extends ActorLogging {
         }
         inStream.send(PMStream.EOF, PMStream.NoControl)
         tickGenerator.foreach(_.cancel())
-        context stop self
+        becomeDisconnected()
     }
 
     scheduleTick()

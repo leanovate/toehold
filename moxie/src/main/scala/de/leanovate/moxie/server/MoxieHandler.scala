@@ -14,9 +14,13 @@ class MoxieHandler(remoteAddress: InetSocketAddress, localAddress: InetSocketAdd
 
   val inStream = Framing.zeroTerminatedString |> Framing.bytesToJsValue |> PMStream.nullStream[JsValue]
 
-  val (tcpHandler, outStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof = true)
+  val (connectedHandler, outStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof = true)
 
-  override def receive = tcpHandler
+  override def receive = connectedHandler
+
+  override def becomeDisconnected() {
+    context stop self
+  }
 }
 
 object MoxieHandler {

@@ -207,6 +207,10 @@ object TcpConnectedStateSpec {
       case Connect(remote, local, connection, inStream, closeOnEof) =>
         sender ! becomeConnected(remote, local, connection, inStream, closeOnEof)
     }
+
+    override def becomeDisconnected() {
+      context stop self
+    }
   }
 
   class MockConnection extends Actor {
