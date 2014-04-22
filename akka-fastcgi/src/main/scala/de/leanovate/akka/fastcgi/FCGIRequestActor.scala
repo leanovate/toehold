@@ -22,6 +22,9 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
     case request: FCGIResponderRequest =>
       newClient(request, sender)
 
+    case deadResponse: FCGIResponderSuccess =>
+      deadResponse.content.abort("Response went to deadLetter (most likely due to timeout)")
+
     case Terminated(client) =>
       if (log.isDebugEnabled) {
         log.debug(s"FCGIClient terminated $client")
@@ -52,6 +55,7 @@ class FCGIRequestActor(host: String, port: Int) extends Actor with ActorLogging 
     if (log.isDebugEnabled) {
       log.debug(s"New FCGIClient $client")
     }
+    context.system.eventStream.subscribe(self, classOf[FCGIResponderSuccess])
     context.watch(client)
     client
   }

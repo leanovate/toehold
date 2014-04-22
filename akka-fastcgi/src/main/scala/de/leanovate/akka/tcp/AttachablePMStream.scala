@@ -6,7 +6,7 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMStream.{NoControl, Control, Chunk}
+import de.leanovate.akka.tcp.PMStream.{EOF, NoControl, Control, Chunk}
 
 /**
  * Not yet attached stream.
@@ -47,4 +47,14 @@ case class AttachablePMStream[A]() extends PMStream[A] {
     }
   }
 
+  def abort(msg: String) {
+
+    synchronized {
+      if (target ne null) {
+        target.send(EOF, NoControl)
+      } else {
+        lastCtrl.abort(msg)
+      }
+    }
+  }
 }

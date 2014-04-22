@@ -38,8 +38,8 @@ object EnumeratorAdapter {
                 ctrl.resume()
                 k(input)
               case Step.Done(result, remain) =>
+                ctrl.resume()
                 Done(result, remain)
-
               case Step.Error(msg, remain) =>
                 ctrl.abort(msg)
                 Error(msg, remain)
