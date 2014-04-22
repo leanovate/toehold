@@ -11,4 +11,4 @@ addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.2")
 
 addSbtPlugin("com.github.sdb" % "xsbt-filter" % "0.4")
 
-addSbtPlugin( "de.leanovate.toehold" %% "php-fpm-sbt-plugin" % "0.1.8-SNAPSHOT")
+addSbtPlugin( "de.leanovate.toehold" %% "php-fpm-sbt-plugin" % "0.1.8")
