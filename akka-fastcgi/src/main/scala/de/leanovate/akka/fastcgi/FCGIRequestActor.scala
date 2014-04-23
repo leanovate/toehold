@@ -9,9 +9,8 @@ package de.leanovate.akka.fastcgi
 import akka.actor._
 import de.leanovate.akka.fastcgi.request._
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import akka.actor.Terminated
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{AttachablePMConsumer, PMConsumer}
+import de.leanovate.akka.tcp.PMConsumer
 import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
@@ -19,7 +18,8 @@ import akka.actor.Terminated
 import de.leanovate.akka.tcp.AttachablePMConsumer
 import scala.concurrent.duration.FiniteDuration
 
-class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) extends Actor with ActorLogging {
+class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration)
+  extends Actor with ActorLogging {
 
   import context.dispatcher
 
@@ -66,7 +66,7 @@ class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) ext
       }
     }
 
-    val client = context.actorOf(FCGIClient.props(host, port, idleTimeout, handler))
+    val client = context.actorOf(FCGIClient.props(host, port, inactivityTimeout, suspendTimeout, handler))
     if (log.isDebugEnabled) {
       log.debug(s"New FCGIClient $client")
     }
@@ -76,6 +76,6 @@ class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) ext
 }
 
 object FCGIRequestActor {
-  def props(host: String, port: Int, idleTimeout: FiniteDuration) =
-    Props(classOf[FCGIRequestActor], host, port, idleTimeout)
+  def props(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration) =
+    Props(classOf[FCGIRequestActor], host, port, inactivityTimeout, suspendTimeout)
 }

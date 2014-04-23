@@ -38,7 +38,7 @@ class FastCGIPlugin(app: Application) extends Plugin {
                          .getOrElse(new File("./php")),
                        requestTimeout = app.configuration.getMilliseconds("fastcgi.requestTimeout")
                          .map(Timeout.apply).getOrElse(new Timeout(1.minute)),
-                       idleTimeout = app.configuration.getMilliseconds("fastcgi.idleTimeout")
+                       suspendTimeout = app.configuration.getMilliseconds("fastcgi.suspendTimeout")
                          .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS)).getOrElse(20.seconds),
                        host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
                        port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
@@ -47,7 +47,8 @@ class FastCGIPlugin(app: Application) extends Plugin {
                      )
     _settings = Some(confSettings)
     _requestActor = Some(Akka.system(app)
-      .actorOf(FCGIRequestActor.props(confSettings.host, confSettings.port, confSettings.idleTimeout),
+      .actorOf(FCGIRequestActor
+      .props(confSettings.host, confSettings.port, confSettings.requestTimeout.duration, confSettings.suspendTimeout),
         FASTCGI_ACTOR_NAME))
   }
 

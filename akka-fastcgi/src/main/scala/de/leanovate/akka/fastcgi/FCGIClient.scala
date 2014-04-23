@@ -10,8 +10,8 @@ import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 import scala.concurrent.duration.FiniteDuration
 
-class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, handler: FCGIConnectionHandler)
-  extends Actor with TcpConnectedState {
+class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration,
+  handler: FCGIConnectionHandler) extends Actor with TcpConnectedState {
 
   import context.system
 
@@ -42,6 +42,7 @@ class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, han
   }
 
   override def becomeDisconnected() {
+
     context stop self
   }
 
@@ -53,9 +54,9 @@ class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, han
 }
 
 object FCGIClient {
-  def props(hostname: String, port: Int, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
-    Props(classOf[FCGIClient], new InetSocketAddress(hostname, port), idleTimeout, handler)
+  def props(hostname: String, port: Int, inactivityTimeout: FiniteDuration, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
+    Props(classOf[FCGIClient], new InetSocketAddress(hostname, port), inactivityTimeout, idleTimeout, handler)
 
-  def props(remote: InetSocketAddress, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
-    Props(classOf[FCGIClient], remote, idleTimeout, handler)
+  def props(remote: InetSocketAddress, inactivityTimeout: FiniteDuration, idleTimeout: FiniteDuration, handler: FCGIConnectionHandler) =
+    Props(classOf[FCGIClient], remote, inactivityTimeout, idleTimeout, handler)
 }

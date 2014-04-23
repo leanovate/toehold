@@ -27,9 +27,13 @@ import akka.io.Tcp.Received
 trait TcpConnectedState extends ActorLogging {
   actor: Actor =>
 
-  def idleTimeout: FiniteDuration
+  def inactivityTimeout: FiniteDuration
+
+  def suspendTimeout: FiniteDuration
 
   def becomeDisconnected()
+
+  val inactivityDeadline =  Ref[Deadline](Deadline.now + inactivityTimeout)
 
   val readDeadline = Ref[Option[Deadline]](None)
 
@@ -62,7 +66,8 @@ trait TcpConnectedState extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress receive chunk: ${data.length} bytes")
         }
-        readDeadline.single.set(Some(Deadline.now + idleTimeout))
+        inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
+        readDeadline.single.set(Some(Deadline.now + suspendTimeout))
         // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
         // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
         connection ! Tcp.SuspendReading
@@ -73,16 +78,20 @@ trait TcpConnectedState extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress inner write ack")
         }
+        inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
         writeDeadline.single.set(None)
 
         outPMStram.acknowledge()
 
       case TcpConnectedState.Tick =>
         if (readDeadline.single.get.exists(_.isOverdue())) {
-          log.error(s"$localAddress -> $remoteAddress read timeout")
+          log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
           connection ! Tcp.Abort
         } else if (writeDeadline.single.get.exists(_.isOverdue())) {
-          log.error(s"$localAddress -> $remoteAddress read timeout")
+          log.error(s"$localAddress -> $remoteAddress timed out in suspend write for >= $suspendTimeout")
+          connection ! Tcp.Abort
+        } else if ( inactivityDeadline.single.get.isOverdue() ) {
+          log.error(s"$localAddress -> $remoteAddress was inactive for >= $inactivityTimeout")
           connection ! Tcp.Abort
         }
         scheduleTick()
@@ -114,6 +123,7 @@ trait TcpConnectedState extends ActorLogging {
       if (log.isDebugEnabled) {
         log.debug(s"$localAddress -> $remoteAddress resume reading")
       }
+      inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
       readDeadline.single.set(None)
       connection ! Tcp.ResumeReading
     }
@@ -121,6 +131,7 @@ trait TcpConnectedState extends ActorLogging {
     override def abort(msg: String) {
 
       log.error(s"$localAddress -> $remoteAddress aborting connection: $msg")
+      inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
       readDeadline.single.set(None)
       connection ! Tcp.Abort
     }
@@ -146,12 +157,14 @@ trait TcpConnectedState extends ActorLogging {
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
               }
-              writeDeadline.single.set(Some(Deadline.now + idleTimeout))
+              inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
+              writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
               connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
               }
+              inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(None)
               connection ! Tcp.Close
             case EOF =>
@@ -176,21 +189,21 @@ trait TcpConnectedState extends ActorLogging {
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
               }
-              writeDeadline.single.set(Some(Deadline.now + idleTimeout))
+              inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
+              writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
               connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
               }
+              inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(None)
               connection ! Tcp.Close
             case EOF =>
           }
       }
     }
-
   }
-
 }
 
 object TcpConnectedState {

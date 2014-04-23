@@ -10,15 +10,19 @@ import scala.concurrent.duration._
 class MoxieHandler(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, connection: ActorRef)
   extends Actor with ActorLogging with TcpConnectedState {
 
-  val idleTimeout = 20.seconds
+  val inactivityTimeout = 60.seconds
+
+  val suspendTimeout = 20.seconds
 
   val inStream = Framing.zeroTerminatedString |> Framing.bytesToJsValue |> PMConsumer.nullStream[JsValue]
 
-  val (connectedHandler, outStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof = true)
+  val (connectedHandler, outStream) = connectedState(remoteAddress, localAddress, connection, inStream,
+                                                      closeOnEof = true)
 
   override def receive = connectedHandler
 
   override def becomeDisconnected() {
+
     context stop self
   }
 }

@@ -205,7 +205,9 @@ object TcpConnectedStateSpec {
     inStream: PMConsumer[ByteString], closeOnEof: Boolean)
 
   class MockActor extends Actor with TcpConnectedState {
-    val idleTimeout = 20.seconds
+    override def inactivityTimeout = 60.seconds
+
+    override def suspendTimeout = 20.seconds
 
     override def receive = {
 
@@ -214,6 +216,7 @@ object TcpConnectedStateSpec {
     }
 
     override def becomeDisconnected() {
+
       context stop self
     }
   }
