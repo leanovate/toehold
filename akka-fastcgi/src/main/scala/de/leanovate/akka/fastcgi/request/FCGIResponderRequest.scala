@@ -11,7 +11,7 @@ import de.leanovate.akka.fastcgi.records._
 import de.leanovate.akka.fastcgi.records.FCGIParams
 import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
 import scala.concurrent.ExecutionContext
-import de.leanovate.akka.tcp.PMStream
+import de.leanovate.akka.tcp.PMConsumer
 import de.leanovate.akka.fastcgi.framing.Framing
 import java.io.File
 
@@ -26,7 +26,7 @@ case class FCGIResponderRequest(
   optContent: Option[FCGIRequestContent]
   ) {
 
-  def writeTo(id: Int, out: PMStream[FCGIRecord])(implicit ctx: ExecutionContext) {
+  def writeTo(id: Int, out: PMConsumer[FCGIRecord])(implicit ctx: ExecutionContext) {
 
     val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive = false)
     val params = FCGIParams(id, (

@@ -9,11 +9,15 @@ package de.leanovate.akka.tcp
 import akka.actor.{Cancellable, ActorLogging, Actor, ActorRef}
 import akka.util.ByteString
 import akka.io.Tcp
-import akka.io.Tcp.{Register, Event, ConnectionClosed, Received}
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control, Chunk}
+import akka.io.Tcp.{Event, ConnectionClosed}
+import de.leanovate.akka.tcp.PMConsumer._
 import scala.concurrent.stm._
 import java.net.InetSocketAddress
 import scala.concurrent.duration._
+import akka.io.Tcp.Register
+import de.leanovate.akka.tcp.PMConsumer.Data
+import scala.Some
+import akka.io.Tcp.Received
 
 /**
  * Helper for the connected state of an actor doing some sort of tcp communication.
@@ -34,7 +38,7 @@ trait TcpConnectedState extends ActorLogging {
   var tickGenerator: Option[Cancellable] = None
 
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMStream[ByteString], closeOnEof: Boolean): PMStream[ByteString] = {
+    connection: ActorRef, inStream: PMConsumer[ByteString], closeOnEof: Boolean): PMConsumer[ByteString] = {
 
     val (connected, outPMStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof)
 
@@ -45,12 +49,12 @@ trait TcpConnectedState extends ActorLogging {
   }
 
   def connectedState(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMStream[ByteString],
-    closeOnEof: Boolean): (Actor.Receive, PMStream[ByteString]) = {
+    connection: ActorRef, inStream: PMConsumer[ByteString],
+    closeOnEof: Boolean): (Actor.Receive, PMConsumer[ByteString]) = {
 
-    val outPMStram = new OutPMStream(remoteAddress, localAddress, connection, closeOnEof)
+    val outPMStram = new OutPMConsumer(remoteAddress, localAddress, connection, closeOnEof)
 
-    val connectionControl = new ConnectionControl(remoteAddress, localAddress, connection)
+    inStream.onSubscribe(new ConnectionSubscription(remoteAddress, localAddress, connection))
 
     def connected: Actor.Receive = {
 
@@ -63,7 +67,7 @@ trait TcpConnectedState extends ActorLogging {
         // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
         connection ! Tcp.SuspendReading
 
-        inStream.send(PMStream.Data(data), connectionControl)
+        inStream.onNext(PMConsumer.Data(data))
 
       case TcpConnectedState.WriteAck =>
         if (log.isDebugEnabled) {
@@ -87,7 +91,7 @@ trait TcpConnectedState extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress connection closed: $c")
         }
-        inStream.send(PMStream.EOF, PMStream.NoControl)
+        inStream.onNext(PMConsumer.EOF)
         tickGenerator.foreach(_.cancel())
         becomeDisconnected()
     }
@@ -103,8 +107,8 @@ trait TcpConnectedState extends ActorLogging {
       .scheduleOnce(1 second, self, TcpConnectedState.Tick)(context.dispatcher))
   }
 
-  private class ConnectionControl(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef) extends Control {
+  private class ConnectionSubscription(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    connection: ActorRef) extends Subscription {
     override def resume() {
 
       if (log.isDebugEnabled) {
@@ -122,42 +126,20 @@ trait TcpConnectedState extends ActorLogging {
     }
   }
 
-  private class OutPMStream(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, closeOnEof: Boolean) extends PMStream[ByteString] {
+  private class OutPMConsumer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    connection: ActorRef, closeOnEof: Boolean) extends PMConsumer[ByteString] {
     private val writeBuffer = new WriteBuffer(remoteAddress, localAddress, log)
 
-    def acknowledge() {
+    private var subscription: Subscription = NoSubscription
 
-      writeBuffer.takeChunk() match {
-        case None =>
-          log.error(s"$localAddress -> $remoteAddress write ack without pending")
-        case Some((chunks, ctrl)) if chunks.isEmpty =>
-          if (log.isDebugEnabled) {
-            log.debug(s"$localAddress -> $remoteAddress resume out stream")
-          }
-          ctrl.resume()
-        case Some((chunks, _)) =>
-          chunks.head match {
-            case Data(data) =>
-              if (log.isDebugEnabled) {
-                log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
-              }
-              writeDeadline.single.set(Some(Deadline.now + idleTimeout))
-              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
-            case EOF if closeOnEof =>
-              if (log.isDebugEnabled) {
-                log.debug(s"$localAddress -> $remoteAddress closing connection")
-              }
-              writeDeadline.single.set(None)
-              connection ! Tcp.Close
-            case EOF =>
-          }
-      }
+    override def onSubscribe(_subscription: Subscription) {
+
+      subscription = _subscription
     }
 
-    override def send(chunk: Chunk[ByteString], ctrl: Control) {
+    override def onNext(chunk: Chunk[ByteString]) {
 
-      writeBuffer.appendChunk(chunk, ctrl) match {
+      writeBuffer.appendChunk(chunk) match {
         case None =>
           chunk match {
             case Data(data) =>
@@ -177,6 +159,36 @@ trait TcpConnectedState extends ActorLogging {
         case _ =>
       }
     }
+
+    def acknowledge() {
+
+      writeBuffer.takeChunk() match {
+        case None =>
+          log.error(s"$localAddress -> $remoteAddress write ack without pending")
+        case Some(chunks) if chunks.isEmpty =>
+          if (log.isDebugEnabled) {
+            log.debug(s"$localAddress -> $remoteAddress resume out stream")
+          }
+          subscription.resume()
+        case Some(chunks) =>
+          chunks.head match {
+            case Data(data) =>
+              if (log.isDebugEnabled) {
+                log.debug(s"$localAddress -> $remoteAddress writing chunk ${data.length}")
+              }
+              writeDeadline.single.set(Some(Deadline.now + idleTimeout))
+              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
+            case EOF if closeOnEof =>
+              if (log.isDebugEnabled) {
+                log.debug(s"$localAddress -> $remoteAddress closing connection")
+              }
+              writeDeadline.single.set(None)
+              connection ! Tcp.Close
+            case EOF =>
+          }
+      }
+    }
+
   }
 
 }

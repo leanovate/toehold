@@ -6,14 +6,14 @@
 
 package de.leanovate.moxie.framing
 
-import de.leanovate.akka.tcp.PMPipe
+import de.leanovate.akka.tcp.PMProcessor
 import akka.util.ByteString
 import play.api.libs.json.{Json, JsValue}
 
 object Framing {
-  def zeroTerminatedString = PMPipe.flatMapChunk(new ZeroTerminatedStringExtractor)
+  def zeroTerminatedString = PMProcessor.flatMapChunk(new ZeroTerminatedStringExtractor)
 
-  def bytesToJsValue = PMPipe.map[ByteString, JsValue] {
+  def bytesToJsValue = PMProcessor.map[ByteString, JsValue] {
     json =>
       Json.parse(json.utf8String)
   }

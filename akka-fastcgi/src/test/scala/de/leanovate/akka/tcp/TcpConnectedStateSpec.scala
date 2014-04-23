@@ -10,10 +10,10 @@ import akka.actor.{ActorSystem, ActorRef, Actor}
 import akka.testkit.{TestProbe, TestActorRef, TestKit}
 import java.net.InetSocketAddress
 import akka.util.ByteString
-import de.leanovate.akka.testutil.CollectingPMStream
+import de.leanovate.akka.testutil.CollectingPMConsumer
 import scala.collection.mutable
 import akka.io.Tcp
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Control}
+import de.leanovate.akka.tcp.PMConsumer.{EOF, Data, Subscription}
 import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
 import org.specs2.mutable.{Specification, After}
 import org.specs2.matcher.ShouldMatchers
@@ -53,87 +53,92 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
     "resume out stream on WriteAck" in new ConnectedMockActor {
       override def closeOnEof = true
 
-      val ctrl = mock[Control]
+      val subscription = mock[Subscription]
 
-      outStream.send(Data(ByteString("something out")), ctrl)
+      outStream.onSubscribe(subscription)
+      outStream.onNext(Data(ByteString("something out")))
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
       mockActor ! TcpConnectedState.WriteAck
 
-      there was one(ctrl).resume()
+      there was one(subscription).resume()
     }
 
     "buffer all output between Write and WriteAck" in new ConnectedMockActor {
       override def closeOnEof = true
 
-      val ctrl = mock[Control]
+      val subscription = mock[Subscription]
 
-      outStream.send(Data(ByteString("something out")), ctrl)
+      outStream.onSubscribe(subscription)
+      outStream.onNext(Data(ByteString("something out")))
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
-      outStream.send(Data(ByteString("some more out")), ctrl)
+      outStream.onNext(Data(ByteString("some more out")))
       assertTcpMessages()
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages(Tcp.Write(ByteString("some more out"), WriteAck))
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
-      there was one(ctrl).resume()
+      there was one(subscription).resume()
     }
 
     "close connection immediately if buffer is empty and closeOfRef is true" in new ConnectedMockActor {
 
       override def closeOnEof = true
 
-      val ctrl = mock[Control]
+      val subscription = mock[Subscription]
 
-      outStream.send(EOF, ctrl)
+      outStream.onSubscribe(subscription)
+      outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Close)
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
     }
 
     "close connection if closeOnEof is true and EOF is send to outstream" in new ConnectedMockActor {
       override def closeOnEof = true
 
-      val ctrl = mock[Control]
+      val subscription = mock[Subscription]
 
-      outStream.send(Data(ByteString("something out")), ctrl)
-      outStream.send(EOF, ctrl)
+      outStream.onSubscribe(subscription)
+      outStream.onNext(Data(ByteString("something out")))
+      outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages(Tcp.Close)
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
     }
 
     "not close connection if closeOnEof is false and EOF is send to outstream" in new ConnectedMockActor {
       override def closeOnEof = false
 
-      val ctrl = mock[Control]
+      val subscription = mock[Subscription]
 
-      outStream.send(Data(ByteString("something out")), ctrl)
-      outStream.send(EOF, ctrl)
+      outStream.onSubscribe(subscription)
+      outStream.onNext(Data(ByteString("something out")))
+      outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
-      there was noCallsTo(ctrl)
+      there was noCallsTo(subscription)
     }
 
     "eof the in stream and kill itself if connection closes for some reason" in new ConnectedMockActor {
@@ -164,15 +169,15 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 
     val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
 
-    val inStream = new CollectingPMStream[String]
+    val inStream = new CollectingPMConsumer[String]
 
     mockActor !
       TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
                                      InetSocketAddress.createUnresolved("localhost", 4321),
-                                     mockConnection, PMPipe.map[ByteString, String](_.utf8String) |> inStream,
+                                     mockConnection, PMProcessor.map[ByteString, String](_.utf8String) |> inStream,
                                      closeOnEof)
 
-    val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMStream[ByteString]]
+    val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMConsumer[ByteString]]
 
     assertTcpMessages(Tcp.Register(mockActor))
 
@@ -197,7 +202,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 object TcpConnectedStateSpec {
 
   case class Connect(remote: InetSocketAddress, local: InetSocketAddress, connection: ActorRef,
-    inStream: PMStream[ByteString], closeOnEof: Boolean)
+    inStream: PMConsumer[ByteString], closeOnEof: Boolean)
 
   class MockActor extends Actor with TcpConnectedState {
     val idleTimeout = 20.seconds

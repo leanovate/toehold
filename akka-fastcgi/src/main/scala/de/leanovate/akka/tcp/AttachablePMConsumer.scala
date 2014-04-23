@@ -6,42 +6,52 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMStream.{EOF, NoControl, Control, Chunk}
+import de.leanovate.akka.tcp.PMConsumer.{EOF, NoSubscription, Subscription, Chunk}
 
 /**
  * Not yet attached stream.
  *
  * All incoming chunks will be buffered white the stream is unattached.
  */
-case class AttachablePMStream[A]() extends PMStream[A] {
+case class AttachablePMConsumer[A]() extends PMConsumer[A] {
   @volatile
-  private var target: PMStream[A] = null
+  private var target: PMConsumer[A] = null
 
   private val chunks = Seq.newBuilder[Chunk[A]]
 
-  private var lastCtrl: Control = NoControl
+  private var subscription: Subscription = NoSubscription
 
-  override def send(chunk: Chunk[A], ctrl: Control) {
+  override def onSubscribe(_subscription: Subscription) {
+
+    synchronized {
+      subscription = _subscription
+      if (target ne null) {
+        target.onSubscribe(subscription)
+      }
+    }
+  }
+
+  override def onNext(chunk: Chunk[A]) {
 
     if (target ne null) {
-      target.send(chunk, ctrl)
+      target.onNext(chunk)
     } else {
       // this is not supposed to run below java 1.5, so double-check is ok
       synchronized {
         if (target ne null) {
-          target.send(chunk, ctrl)
+          target.onNext(chunk)
         } else {
           chunks += chunk
-          lastCtrl = ctrl
         }
       }
     }
   }
 
-  def attach(_target: PMStream[A]) {
+  def attach(_target: PMConsumer[A]) {
 
     synchronized {
-      _target.sendSeq(chunks.result(), lastCtrl)
+      _target.onSubscribe(subscription)
+      chunks.result().foreach(_target.onNext)
       chunks.clear()
       target = _target
     }
@@ -51,10 +61,11 @@ case class AttachablePMStream[A]() extends PMStream[A] {
 
     synchronized {
       if (target ne null) {
-        target.send(EOF, NoControl)
+        target.onNext(EOF)
       } else {
-        lastCtrl.abort(msg)
+        subscription.abort(msg)
       }
     }
   }
+
 }

@@ -7,7 +7,7 @@
 package de.leanovate.akka.tcp
 
 /**
- * Pull-mode stream (aka poor man's "reactive" streaming).
+ * Pull-mode consumer (aka poor man's "reactive" streaming).
  *
  * This is most certainly not the best api for this kind of task, it is just supposed to avoid Future-cascades.
  * Will most likely be removed once akka has its own reactive stream (which might happen with 2.4).
@@ -17,49 +17,32 @@ package de.leanovate.akka.tcp
  * resumed. In return this implies that the IO manager should suspend all further reading until the stream decides to
  * resume.
  */
-trait PMStream[A] {
+trait PMConsumer[A] {
 
-  import PMStream._
+  import PMConsumer._
+
+  /**
+   * Called once the consumer subscribes/attaches to some sort of producer.
+   *
+   * For invokers:
+   * a) Ensure that this is called before everything else
+   * b) Avoid re-calling `onNext` before consumer has given its ok via `subscription.resume()`
+  * For implementors:
+   * a) Never ever do a blocking operation here.
+   */
+  def onSubscribe(subscription: Subscription)
 
   /**
    * Send a chunk of data to the stream.
    *
    * For invokers:
-   * a) Avoid re-calling this before the stream has given its ok via `ctrl.resumt()`
+   * a) Avoid re-calling this before the stream has given its ok via `subscription.resume()`
    * b) This method is not supposed to be thread-safe (i.e. chunks have a clearly defined order)
    * For implementors:
    * a) Never ever perform a blocking operation,
    * b) ensure that you call `ctrl.resume()` once you are ready for the next chunk (either directly of asynchronously
    */
-  def send(chunk: Chunk[A], ctrl: Control)
-
-  /**
-   * Send a sequence of chunks.
-   *
-   * THis might happen during framing/un-framing. If you already have a sequence of chunks in memory you have to get
-   * rid of them somehow.
-   */
-  def sendSeq(chunks: Seq[Chunk[A]], ctrl: Control) {
-
-    if (chunks.isEmpty) {
-      ctrl.resume()
-    } else {
-      val it = chunks.iterator
-      while (it.hasNext) {
-        val chunk = it.next()
-
-        if (it.hasNext) {
-          send(chunk, new Control {
-            override def resume() {}
-
-            override def abort(msg: String) = ctrl.abort(msg)
-          })
-        } else {
-          send(chunk, ctrl)
-        }
-      }
-    }
-  }
+  def onNext(chunk: Chunk[A])
 
   /**
    * Push some data to the stream.
@@ -67,11 +50,11 @@ trait PMStream[A] {
    * Note: This does not have any form of back-pressure handling. Use with care.
    */
   def push(data: A*) {
-    sendSeq(data.map(Data.apply), NoControl)
+    data.map(Data.apply).foreach(onNext)
   }
 }
 
-object PMStream {
+object PMConsumer {
 
   /**
    * Abstraction of a chunk transmitted to a stream.
@@ -91,7 +74,7 @@ object PMStream {
   /**
    * Abstraction of stream control (i.e. back-pressure handling).
    */
-  trait Control {
+  trait Subscription {
     /**
      * Resume reading (i.e. resume pushing more chunks to the stream).
      */
@@ -107,7 +90,7 @@ object PMStream {
    * Little helper if there is no stream control whatsoever.
    * E.g. when all the data is already fully in memory.
    */
-  object NoControl extends Control {
+  object NoSubscription extends Subscription {
     override def resume() {}
 
     override def abort(msg: String) {}
@@ -116,9 +99,15 @@ object PMStream {
   /**
    * Little helper to create a /dev/null sink.
    */
-  def nullStream[A] = new PMStream[A] {
-    override def send(chunk: Chunk[A], ctrl: Control) {
-      ctrl.resume()
+  def nullStream[A] = new PMConsumer[A] {
+    private var subscription: Subscription = NoSubscription
+
+    override def onSubscribe(_subscription: Subscription) {
+      subscription = _subscription
+    }
+
+    override def onNext(chunk: Chunk[A]) {
+      subscription.resume()
     }
   }
 }

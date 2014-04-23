@@ -10,10 +10,10 @@ import org.specs2.mutable.Specification
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdOut, FCGIRecord}
-import de.leanovate.akka.testutil.CollectingPMStream
+import de.leanovate.akka.testutil.CollectingPMConsumer
 import scala.util.Random
 import org.specs2.matcher.ShouldMatchers
-import de.leanovate.akka.tcp.PMStream.{EOF, NoControl}
+import de.leanovate.akka.tcp.PMConsumer.EOF
 
 class BytesToFCGIRecordSpec extends Specification with ShouldMatchers {
   val responseData = ByteString(Hex
@@ -39,18 +39,18 @@ class BytesToFCGIRecordSpec extends Specification with ShouldMatchers {
 
   "BytesToFCGIRecords" should {
     "be able to convert a FCGI stream to a sequence of FCGIRecords" in {
-      val out = new CollectingPMStream[FCGIRecord]
+      val out = new CollectingPMConsumer[FCGIRecord]
       val pipe = Framing.bytesToFCGIRecords |> out
 
       pipe.push(responseData)
-      pipe.send(EOF, NoControl)
+      pipe.onNext(EOF)
 
       out.eof should beTrue
       isExpected(out.result())
     }
 
     "not break if the data is send in arbitrary chunks" in {
-      val out = new CollectingPMStream[FCGIRecord]
+      val out = new CollectingPMConsumer[FCGIRecord]
       val pipe = Framing.bytesToFCGIRecords |> out
 
       var idx = 0

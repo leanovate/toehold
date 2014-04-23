@@ -4,29 +4,31 @@
 **   | || (_) |  __/ | | | (_) | | (_| |                           **
 \*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
 
-package de.leanovate.akka.testutil
+package de.leanovate.moxie.testutil
 
-import de.leanovate.akka.tcp.PMStream
-import de.leanovate.akka.tcp.PMStream._
-import de.leanovate.akka.tcp.PMStream.Data
+import de.leanovate.akka.tcp.PMConsumer
+import de.leanovate.akka.tcp.PMConsumer._
+import de.leanovate.akka.tcp.PMConsumer.Data
 
-class CollectingPMStream[A](resuming: Boolean = false) extends PMStream[A] {
+class CollectingPMConsumer[A] extends PMConsumer[A] {
   val dataSeq = Seq.newBuilder[A]
 
   var eof = false
 
-  var lastCtrl: Control = NoControl
+  private var subscription: Subscription = NoSubscription
 
-  override def send(chunk: Chunk[A], ctrl: Control) {
+  override def onSubscribe(_subscription: Subscription) {
 
-    lastCtrl = ctrl
+    subscription = _subscription
+  }
+
+  override def onNext(chunk: Chunk[A]) {
+
     chunk match {
       case Data(data) =>
         if (!eof) {
           dataSeq += data
-          if (resuming) {
-            ctrl.resume()
-          }
+            subscription.resume()
         }
       case EOF =>
         eof = true
@@ -37,17 +39,15 @@ class CollectingPMStream[A](resuming: Boolean = false) extends PMStream[A] {
 
   def clear() {
     dataSeq.clear()
-    lastCtrl = NoControl
+    subscription = NoSubscription
   }
 
   def markResume() {
 
-    lastCtrl.resume()
-    lastCtrl = NoControl
+    subscription.resume()
   }
 
   def markAbort(msg:String) {
-    lastCtrl.abort(msg)
-    lastCtrl = NoControl
+    subscription.abort(msg)
   }
 }

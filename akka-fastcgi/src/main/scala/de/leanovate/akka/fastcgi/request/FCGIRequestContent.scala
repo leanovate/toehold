@@ -8,12 +8,12 @@ package de.leanovate.akka.fastcgi.request
 
 import akka.util.ByteString
 import scala.concurrent.ExecutionContext
-import de.leanovate.akka.tcp.AttachablePMStream
+import de.leanovate.akka.tcp.AttachablePMConsumer
 
 case class FCGIRequestContent(
   mimeType: String,
   length: Long,
-  stream: AttachablePMStream[ByteString]
+  stream: AttachablePMConsumer[ByteString]
   )
 
 object FCGIRequestContent {
@@ -21,7 +21,7 @@ object FCGIRequestContent {
 
     val data = ByteString(str)
 
-    val content = new AttachablePMStream[ByteString]
+    val content = new AttachablePMConsumer[ByteString]
     content.push(data)
     FCGIRequestContent(mimeType, data.length, content)
   }

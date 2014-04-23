@@ -6,8 +6,8 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.testutil.CollectingPMStream
-import de.leanovate.akka.tcp.PMStream.{Data, Control}
+import de.leanovate.akka.testutil.CollectingPMConsumer
+import de.leanovate.akka.tcp.PMConsumer.{Data, Subscription}
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
@@ -15,36 +15,40 @@ import org.specs2.mock.Mockito
 class AttachablePMStreamSpec extends Specification with ShouldMatchers with Mockito {
   "AttachablePMStream" should {
     "buffer data in unattached state" in {
-      val attachable = new AttachablePMStream[String]
-      val ctrl = mock[Control]
+      val attachable = new AttachablePMConsumer[String]
+      val subscription = mock[Subscription]
 
-      attachable.send(Data("1"), ctrl)
-      attachable.send(Data("2"), ctrl)
-      attachable.send(Data("3"), ctrl)
-      there was noCallsTo(ctrl)
+      attachable.onSubscribe(subscription)
+      attachable.onNext(Data("1"))
+      attachable.onNext(Data("2"))
+      attachable.onNext(Data("3"))
+      there was noCallsTo(subscription)
 
-      val out = new CollectingPMStream[String](resuming = true)
+      val out = new CollectingPMConsumer[String]
 
       attachable.attach(out)
+      out.markResume()
 
-      there was one(ctrl).resume()
+      there was one(subscription).resume()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")
     }
 
     "should pass through after attached" in {
-      val attachable = new AttachablePMStream[String]
-      val ctrl = mock[Control]
-      val out = new CollectingPMStream[String](resuming = true)
+      val attachable = new AttachablePMConsumer[String]
+      val subscription = mock[Subscription]
+      val out = new CollectingPMConsumer[String]
 
       attachable.attach(out)
 
-      attachable.send(Data("1"), ctrl)
-      attachable.send(Data("2"), ctrl)
-      attachable.send(Data("3"), ctrl)
+      attachable.onSubscribe(subscription)
+      attachable.onNext(Data("1"))
+      attachable.onNext(Data("2"))
+      attachable.onNext(Data("3"))
+      out.markResume()
 
-      there was three(ctrl).resume()
+      there was one(subscription).resume()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")

@@ -1,7 +1,7 @@
 package de.leanovate.moxie.server
 
 import akka.actor.{ActorRef, Props, ActorLogging, Actor}
-import de.leanovate.akka.tcp.{PMStream, TcpConnectedState}
+import de.leanovate.akka.tcp.{PMConsumer, TcpConnectedState}
 import java.net.InetSocketAddress
 import de.leanovate.moxie.framing.Framing
 import play.api.libs.json.JsValue
@@ -12,7 +12,7 @@ class MoxieHandler(remoteAddress: InetSocketAddress, localAddress: InetSocketAdd
 
   val idleTimeout = 20.seconds
 
-  val inStream = Framing.zeroTerminatedString |> Framing.bytesToJsValue |> PMStream.nullStream[JsValue]
+  val inStream = Framing.zeroTerminatedString |> Framing.bytesToJsValue |> PMConsumer.nullStream[JsValue]
 
   val (connectedHandler, outStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof = true)
 

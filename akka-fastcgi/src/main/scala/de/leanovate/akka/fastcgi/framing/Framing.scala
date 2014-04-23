@@ -7,21 +7,21 @@
 package de.leanovate.akka.fastcgi.framing
 
 import akka.util.ByteString
-import de.leanovate.akka.tcp.PMPipe
-import de.leanovate.akka.tcp.PMStream.{EOF, Data}
+import de.leanovate.akka.tcp.PMProcessor
+import de.leanovate.akka.tcp.PMConsumer.{EOF, Data}
 import de.leanovate.akka.fastcgi.records.{FCGIStdin, FCGIRecord}
 
 object Framing {
-  def byteArrayToByteString = PMPipe.map[Array[Byte], ByteString](ByteString.apply)
+  def byteArrayToByteString = PMProcessor.map[Array[Byte], ByteString](ByteString.apply)
 
-  def toFCGIStdin(id: Int) = PMPipe.mapChunk[ByteString, FCGIRecord] {
+  def toFCGIStdin(id: Int) = PMProcessor.mapChunk[ByteString, FCGIRecord] {
     case Data(content) =>
       Data(FCGIStdin(id, content))
     case EOF =>
       Data(FCGIStdin(id, ByteString.empty))
   }
 
-  def bytesToFCGIRecords = PMPipe.flatMapChunk(new BytesToFCGIRecords)
+  def bytesToFCGIRecords = PMProcessor.flatMapChunk(new BytesToFCGIRecords)
 
-  def filterStdOut(stderr: ByteString => Unit) = PMPipe.flatMapChunk(new FilterStdOut(stderr))
+  def filterStdOut(stderr: ByteString => Unit) = PMProcessor.flatMapChunk(new FilterStdOut(stderr))
 }

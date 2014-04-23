@@ -11,12 +11,12 @@ import de.leanovate.akka.fastcgi.request._
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.actor.Terminated
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{AttachablePMStream, PMStream}
+import de.leanovate.akka.tcp.{AttachablePMConsumer, PMConsumer}
 import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import akka.actor.Terminated
-import de.leanovate.akka.tcp.AttachablePMStream
+import de.leanovate.akka.tcp.AttachablePMConsumer
 import scala.concurrent.duration.FiniteDuration
 
 class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) extends Actor with ActorLogging {
@@ -49,13 +49,13 @@ class FCGIRequestActor(host: String, port: Int, idleTimeout: FiniteDuration) ext
   private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
 
     val handler = new FCGIConnectionHandler {
-      override def connected(outStream: PMStream[FCGIRecord]) = {
+      override def connected(outStream: PMConsumer[FCGIRecord]) = {
 
         request.writeTo(1, outStream)
       }
 
       override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-        in: AttachablePMStream[ByteString]) = {
+        in: AttachablePMConsumer[ByteString]) = {
 
         target ! FCGIResponderSuccess(statusCode, statusLine, headers, in)
       }

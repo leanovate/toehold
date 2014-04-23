@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{AttachablePMStream, PMPipe, TcpConnectedState}
+import de.leanovate.akka.tcp.{AttachablePMConsumer, PMProcessor, TcpConnectedState}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 import scala.concurrent.duration.FiniteDuration
@@ -28,7 +28,7 @@ class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, han
       if (log.isDebugEnabled) {
         log.debug(s"Connected $localAddress -> $remoteAddress")
       }
-      val in = new AttachablePMStream[ByteString]
+      val in = new AttachablePMConsumer[ByteString]
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>
           handler.headerReceived(statusCode, statusLine, headers, in)
@@ -36,9 +36,9 @@ class FCGIClient(remote: InetSocketAddress, val idleTimeout: FiniteDuration, han
       val pipeline =
         Framing.bytesToFCGIRecords |>
           Framing.filterStdOut(stderrToLog) |>
-          PMPipe.flatMapChunk(httpExtractor) |> in
+          PMProcessor.flatMapChunk(httpExtractor) |> in
       val outStream = becomeConnected(remoteAddress, localAddress, sender, pipeline, closeOnEof = false)
-      handler.connected(PMPipe.map[FCGIRecord, ByteString](_.encode) |> outStream)
+      handler.connected(PMProcessor.map[FCGIRecord, ByteString](_.encode) |> outStream)
   }
 
   override def becomeDisconnected() {

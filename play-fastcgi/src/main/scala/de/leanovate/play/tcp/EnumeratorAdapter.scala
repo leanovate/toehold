@@ -8,40 +8,49 @@ package de.leanovate.play.tcp
 
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk, Control}
-import de.leanovate.akka.tcp.{PMStream, AttachablePMStream}
+import de.leanovate.akka.tcp.PMConsumer._
+import de.leanovate.akka.tcp.PMConsumer
+import de.leanovate.akka.tcp.PMConsumer.Data
+import de.leanovate.akka.tcp.AttachablePMConsumer
 
 object EnumeratorAdapter {
-  def adapt[A](attachable: AttachablePMStream[A])(implicit ctx: ExecutionContext): Enumerator[A] = new Enumerator[A] {
+  def adapt[A](attachable: AttachablePMConsumer[A])(implicit ctx: ExecutionContext): Enumerator[A] = new Enumerator[A] {
     private val resultIteratee = Promise[Iteratee[A, _]]()
 
-    class IterateeStream(initial: Iteratee[A, _]) extends PMStream[A] {
+    class IterateeConsumer(initial: Iteratee[A, _]) extends PMConsumer[A] {
 
-      var currentIteratee = Future.successful(initial)
+      private var currentIteratee = Future.successful(initial)
 
-      override def send(chunk: Chunk[A], ctrl: Control) {
+      private var subscription: Subscription = NoSubscription
+
+      override def onSubscribe(_subscription: Subscription) {
+
+        subscription = _subscription
+      }
+
+      override def onNext(chunk: Chunk[A]) {
 
         chunk match {
           case Data(data) =>
-            feed(Input.El(data), ctrl)
+            feed(Input.El(data))
           case EOF =>
-            resultIteratee.completeWith(feed(Input.EOF, ctrl))
+            resultIteratee.completeWith(feed(Input.EOF))
         }
       }
 
-      private def feed(input: Input[A], ctrl: Control): Future[Iteratee[A, _]] = {
+      private def feed(input: Input[A]): Future[Iteratee[A, _]] = {
 
         currentIteratee = currentIteratee.flatMap {
           it =>
             it.pureFold {
               case Step.Cont(k) =>
-                ctrl.resume()
+                subscription.resume()
                 k(input)
               case Step.Done(result, remain) =>
-                ctrl.resume()
+                subscription.resume()
                 Done(result, remain)
               case Step.Error(msg, remain) =>
-                ctrl.abort(msg)
+                subscription.abort(msg)
                 Error(msg, remain)
             }
         }
@@ -51,7 +60,7 @@ object EnumeratorAdapter {
 
     override def apply[U](i: Iteratee[A, U]) = {
 
-      attachable.attach(new IterateeStream(i))
+      attachable.attach(new IterateeConsumer(i))
 
       resultIteratee.future.asInstanceOf[Future[Iteratee[A, U]]]
     }

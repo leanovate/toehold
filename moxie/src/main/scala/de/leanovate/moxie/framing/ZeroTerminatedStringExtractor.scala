@@ -6,7 +6,7 @@
 
 package de.leanovate.moxie.framing
 
-import de.leanovate.akka.tcp.PMStream.{EOF, Data, Chunk}
+import de.leanovate.akka.tcp.PMConsumer.{EOF, Data, Chunk}
 import akka.util.ByteString
 
 class ZeroTerminatedStringExtractor extends (Chunk[ByteString] => Seq[Chunk[ByteString]]) {
