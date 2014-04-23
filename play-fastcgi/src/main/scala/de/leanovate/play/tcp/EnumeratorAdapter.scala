@@ -12,9 +12,11 @@ import de.leanovate.akka.tcp.PMSubscriber._
 import de.leanovate.akka.tcp.PMSubscriber
 import de.leanovate.akka.tcp.PMSubscriber.Data
 import de.leanovate.akka.tcp.AttachablePMSubscriber
+import java.util.concurrent.atomic.AtomicInteger
 
 object EnumeratorAdapter {
-  def adapt[A](attachable: AttachablePMSubscriber[A])(implicit ctx: ExecutionContext): Enumerator[A] = new Enumerator[A] {
+  def adapt[A](attachable: AttachablePMSubscriber[A])(implicit ctx: ExecutionContext): Enumerator[A] = new
+      Enumerator[A] {
     private val resultIteratee = Promise[Iteratee[A, _]]()
 
     class IterateeSubscriber(initial: Iteratee[A, _]) extends PMSubscriber[A] {
@@ -22,6 +24,8 @@ object EnumeratorAdapter {
       private var currentIteratee = Future.successful(initial)
 
       private var subscription: Subscription = NoSubscription
+
+      private val queueSize = new AtomicInteger(0)
 
       override def onSubscribe(_subscription: Subscription) {
 
@@ -40,14 +44,19 @@ object EnumeratorAdapter {
 
       private def feed(input: Input[A]): Future[Iteratee[A, _]] = {
 
+        queueSize.incrementAndGet()
         currentIteratee = currentIteratee.flatMap {
           it =>
             it.pureFold {
               case Step.Cont(k) =>
-                subscription.requestMore()
+                if (queueSize.decrementAndGet() == 0) {
+                  subscription.requestMore()
+                }
                 k(input)
               case Step.Done(result, remain) =>
-                subscription.requestMore()
+                if (queueSize.decrementAndGet() == 0) {
+                  subscription.requestMore()
+                }
                 Done(result, remain)
               case Step.Error(msg, remain) =>
                 subscription.cancel(msg)
