@@ -8,7 +8,7 @@ package de.leanovate.akka.fastcgi.framing
 
 import akka.util.ByteString
 import de.leanovate.akka.tcp.PMProcessor
-import de.leanovate.akka.tcp.PMConsumer.{EOF, Data}
+import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data}
 import de.leanovate.akka.fastcgi.records.{FCGIStdin, FCGIRecord}
 
 object Framing {

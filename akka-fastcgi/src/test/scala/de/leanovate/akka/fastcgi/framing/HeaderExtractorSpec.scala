@@ -8,16 +8,16 @@ package de.leanovate.akka.fastcgi.framing
 
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
-import de.leanovate.akka.testutil.CollectingPMConsumer
+import de.leanovate.akka.testutil.CollectingPMSubscriber
 import akka.util.ByteString
 import org.specs2.mock.Mockito
 import de.leanovate.akka.tcp.PMProcessor
-import de.leanovate.akka.tcp.PMConsumer.EOF
+import de.leanovate.akka.tcp.PMSubscriber.EOF
 
 class HeaderExtractorSpec extends Specification with ShouldMatchers with Mockito {
   "HeaderExtractor" should {
     "not forward before the first empty line" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val headersCallback = mock[(Int, String, Seq[(String, String)]) => Unit]
       val pipe = PMProcessor.flatMapChunk(new HeaderExtractor(headersCallback)) |> out
 
@@ -38,7 +38,7 @@ class HeaderExtractorSpec extends Specification with ShouldMatchers with Mockito
     }
 
     "report all parsed headers on eof" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val headersCallback = mock[(Int, String, Seq[(String, String)]) => Unit]
       val pipe = PMProcessor.flatMapChunk(new HeaderExtractor(headersCallback)) |> out
 
@@ -54,7 +54,7 @@ class HeaderExtractorSpec extends Specification with ShouldMatchers with Mockito
     }
 
     "be able to parse lines broken in different chunks" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val headersCallback = mock[(Int, String, Seq[(String, String)]) => Unit]
       val pipe = PMProcessor.flatMapChunk(new HeaderExtractor(headersCallback)) |> out
 
@@ -68,7 +68,7 @@ class HeaderExtractorSpec extends Specification with ShouldMatchers with Mockito
     }
 
     "parse statusCode without status text" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val headersCallback = mock[(Int, String, Seq[(String, String)]) => Unit]
       val pipe = PMProcessor.flatMapChunk(new HeaderExtractor(headersCallback)) |> out
 

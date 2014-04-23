@@ -6,8 +6,8 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.testutil.CollectingPMConsumer
-import de.leanovate.akka.tcp.PMConsumer.{Data, EOF}
+import de.leanovate.akka.testutil.CollectingPMSubscriber
+import de.leanovate.akka.tcp.PMSubscriber.{Data, EOF}
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
@@ -15,7 +15,7 @@ import org.specs2.mock.Mockito
 class PMProcessorSpec extends Specification with ShouldMatchers with Mockito {
   "PMPipe" should {
     "support simple data mapping" in {
-      val out = new CollectingPMConsumer[Int]
+      val out = new CollectingPMSubscriber[Int]
       val pipe = PMProcessor.map[String, Int](_.toInt) |> out
 
       pipe.push("1", "2", "3")
@@ -26,7 +26,7 @@ class PMProcessorSpec extends Specification with ShouldMatchers with Mockito {
     }
 
     "support chunk mapping" in {
-      val out = new CollectingPMConsumer[Int]
+      val out = new CollectingPMSubscriber[Int]
       val pipe = PMProcessor.mapChunk[String, Int] {
         case Data(str) => Data(str.toInt)
         case EOF => Data(0)
@@ -40,7 +40,7 @@ class PMProcessorSpec extends Specification with ShouldMatchers with Mockito {
     }
 
     "support flatMap on chunk" in {
-      val out = new CollectingPMConsumer[Int]
+      val out = new CollectingPMSubscriber[Int]
       val pipe = PMProcessor.flatMapChunk[String, Int] {
         case Data(str) => Range(0, str.toInt + 1).map(Data(_))
         case EOF => Seq(Data(0))
@@ -58,7 +58,7 @@ class PMProcessorSpec extends Specification with ShouldMatchers with Mockito {
         case Data(idx) => Range(0, idx + 1).map(Data(_))
         case EOF => Seq(Data(0))
       }
-      val out = new CollectingPMConsumer[Int]
+      val out = new CollectingPMSubscriber[Int]
       val pipe = concatPipe |> out
 
       pipe.push("1", "2", "3")

@@ -6,11 +6,11 @@
 
 package de.leanovate.moxie.testutil
 
-import de.leanovate.akka.tcp.PMConsumer
-import de.leanovate.akka.tcp.PMConsumer._
-import de.leanovate.akka.tcp.PMConsumer.Data
+import de.leanovate.akka.tcp.PMSubscriber
+import de.leanovate.akka.tcp.PMSubscriber._
+import de.leanovate.akka.tcp.PMSubscriber.Data
 
-class CollectingPMConsumer[A] extends PMConsumer[A] {
+class CollectingPMSubscriber[A] extends PMSubscriber[A] {
   val dataSeq = Seq.newBuilder[A]
 
   var eof = false
@@ -28,7 +28,7 @@ class CollectingPMConsumer[A] extends PMConsumer[A] {
       case Data(data) =>
         if (!eof) {
           dataSeq += data
-            subscription.resume()
+            subscription.requestMore()
         }
       case EOF =>
         eof = true
@@ -44,10 +44,10 @@ class CollectingPMConsumer[A] extends PMConsumer[A] {
 
   def markResume() {
 
-    subscription.resume()
+    subscription.requestMore()
   }
 
   def markAbort(msg:String) {
-    subscription.abort(msg)
+    subscription.cancel(msg)
   }
 }

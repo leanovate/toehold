@@ -10,12 +10,12 @@ import akka.actor._
 import de.leanovate.akka.fastcgi.request._
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.util.ByteString
-import de.leanovate.akka.tcp.PMConsumer
+import de.leanovate.akka.tcp.PMSubscriber
 import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import akka.actor.Terminated
-import de.leanovate.akka.tcp.AttachablePMConsumer
+import de.leanovate.akka.tcp.AttachablePMSubscriber
 import scala.concurrent.duration.FiniteDuration
 
 class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration)
@@ -49,13 +49,13 @@ class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuratio
   private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
 
     val handler = new FCGIConnectionHandler {
-      override def connected(outStream: PMConsumer[FCGIRecord]) = {
+      override def connected(outStream: PMSubscriber[FCGIRecord]) = {
 
         request.writeTo(1, outStream)
       }
 
       override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-        in: AttachablePMConsumer[ByteString]) = {
+        in: AttachablePMSubscriber[ByteString]) = {
 
         target ! FCGIResponderSuccess(statusCode, statusLine, headers, in)
       }

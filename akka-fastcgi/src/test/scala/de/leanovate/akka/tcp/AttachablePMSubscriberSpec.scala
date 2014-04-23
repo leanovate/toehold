@@ -6,16 +6,16 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.testutil.CollectingPMConsumer
-import de.leanovate.akka.tcp.PMConsumer.{Data, Subscription}
+import de.leanovate.akka.testutil.CollectingPMSubscriber
+import de.leanovate.akka.tcp.PMSubscriber.{Data, Subscription}
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
 
-class AttachablePMStreamSpec extends Specification with ShouldMatchers with Mockito {
+class AttachablePMSubscriberSpec extends Specification with ShouldMatchers with Mockito {
   "AttachablePMStream" should {
     "buffer data in unattached state" in {
-      val attachable = new AttachablePMConsumer[String]
+      val attachable = new AttachablePMSubscriber[String]
       val subscription = mock[Subscription]
 
       attachable.onSubscribe(subscription)
@@ -24,23 +24,23 @@ class AttachablePMStreamSpec extends Specification with ShouldMatchers with Mock
       attachable.onNext(Data("3"))
       there was noCallsTo(subscription)
 
-      val out = new CollectingPMConsumer[String]
+      val out = new CollectingPMSubscriber[String]
 
-      attachable.attach(out)
+      attachable.subscribe(out)
       out.markResume()
 
-      there was one(subscription).resume()
+      there was one(subscription).requestMore()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")
     }
 
     "should pass through after attached" in {
-      val attachable = new AttachablePMConsumer[String]
+      val attachable = new AttachablePMSubscriber[String]
       val subscription = mock[Subscription]
-      val out = new CollectingPMConsumer[String]
+      val out = new CollectingPMSubscriber[String]
 
-      attachable.attach(out)
+      attachable.subscribe(out)
 
       attachable.onSubscribe(subscription)
       attachable.onNext(Data("1"))
@@ -48,7 +48,7 @@ class AttachablePMStreamSpec extends Specification with ShouldMatchers with Mock
       attachable.onNext(Data("3"))
       out.markResume()
 
-      there was one(subscription).resume()
+      there was one(subscription).requestMore()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")

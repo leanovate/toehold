@@ -7,12 +7,12 @@
 package de.leanovate.akka.fastcgi.request
 
 import akka.util.ByteString
-import de.leanovate.akka.tcp.AttachablePMConsumer
+import de.leanovate.akka.tcp.AttachablePMSubscriber
 
 sealed trait FCGIResponderResponse
 
 case class FCGIResponderSuccess(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-  content: AttachablePMConsumer[ByteString])
+  content: AttachablePMSubscriber[ByteString])
   extends FCGIResponderResponse
 
 case class FCGIResponderError(msg: String) extends FCGIResponderResponse

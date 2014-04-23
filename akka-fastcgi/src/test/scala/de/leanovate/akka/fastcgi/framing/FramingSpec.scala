@@ -8,15 +8,15 @@ package de.leanovate.akka.fastcgi.framing
 
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
-import de.leanovate.akka.testutil.CollectingPMConsumer
+import de.leanovate.akka.testutil.CollectingPMSubscriber
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.records.{FCGIStdin, FCGIRecord}
-import de.leanovate.akka.tcp.PMConsumer.{EOF, Data, NoSubscription}
+import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data, NoSubscription}
 
 class FramingSpec extends Specification with ShouldMatchers {
   "toFCGIStdin" should {
     "encode all input to fcgi stdin records" in {
-      val out = new CollectingPMConsumer[FCGIRecord]
+      val out = new CollectingPMSubscriber[FCGIRecord]
       val pipe = Framing.toFCGIStdin(1) |> out
 
       pipe.push(ByteString("Hello"), ByteString("World"))
@@ -26,7 +26,7 @@ class FramingSpec extends Specification with ShouldMatchers {
     }
 
     "encode eof to empty fcgi stdin record" in {
-      val out = new CollectingPMConsumer[FCGIRecord]
+      val out = new CollectingPMSubscriber[FCGIRecord]
       val pipe = Framing.toFCGIStdin(1) |> out
 
       pipe.onNext(Data(ByteString("Hello")))
@@ -39,7 +39,7 @@ class FramingSpec extends Specification with ShouldMatchers {
 
   "byteArrayToByteString" should {
     "convert byte arrays" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.byteArrayToByteString |> out
 
       pipe.push(Array[Byte](1, 2, 3), Array[Byte](4, 5, 6))

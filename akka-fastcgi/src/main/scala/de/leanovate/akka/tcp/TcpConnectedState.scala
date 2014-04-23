@@ -10,12 +10,12 @@ import akka.actor.{Cancellable, ActorLogging, Actor, ActorRef}
 import akka.util.ByteString
 import akka.io.Tcp
 import akka.io.Tcp.{Event, ConnectionClosed}
-import de.leanovate.akka.tcp.PMConsumer._
+import de.leanovate.akka.tcp.PMSubscriber._
 import scala.concurrent.stm._
 import java.net.InetSocketAddress
 import scala.concurrent.duration._
 import akka.io.Tcp.Register
-import de.leanovate.akka.tcp.PMConsumer.Data
+import de.leanovate.akka.tcp.PMSubscriber.Data
 import scala.Some
 import akka.io.Tcp.Received
 
@@ -42,7 +42,7 @@ trait TcpConnectedState extends ActorLogging {
   var tickGenerator: Option[Cancellable] = None
 
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMConsumer[ByteString], closeOnEof: Boolean): PMConsumer[ByteString] = {
+    connection: ActorRef, inStream: PMSubscriber[ByteString], closeOnEof: Boolean): PMSubscriber[ByteString] = {
 
     val (connected, outPMStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof)
 
@@ -53,10 +53,10 @@ trait TcpConnectedState extends ActorLogging {
   }
 
   def connectedState(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMConsumer[ByteString],
-    closeOnEof: Boolean): (Actor.Receive, PMConsumer[ByteString]) = {
+    connection: ActorRef, inStream: PMSubscriber[ByteString],
+    closeOnEof: Boolean): (Actor.Receive, PMSubscriber[ByteString]) = {
 
-    val outPMStram = new OutPMConsumer(remoteAddress, localAddress, connection, closeOnEof)
+    val outPMStram = new OutPMSubscriber(remoteAddress, localAddress, connection, closeOnEof)
 
     inStream.onSubscribe(new ConnectionSubscription(remoteAddress, localAddress, connection))
 
@@ -72,7 +72,7 @@ trait TcpConnectedState extends ActorLogging {
         // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
         connection ! Tcp.SuspendReading
 
-        inStream.onNext(PMConsumer.Data(data))
+        inStream.onNext(PMSubscriber.Data(data))
 
       case TcpConnectedState.WriteAck =>
         if (log.isDebugEnabled) {
@@ -100,7 +100,7 @@ trait TcpConnectedState extends ActorLogging {
         if (log.isDebugEnabled) {
           log.debug(s"$localAddress -> $remoteAddress connection closed: $c")
         }
-        inStream.onNext(PMConsumer.EOF)
+        inStream.onNext(PMSubscriber.EOF)
         tickGenerator.foreach(_.cancel())
         becomeDisconnected()
     }
@@ -118,7 +118,7 @@ trait TcpConnectedState extends ActorLogging {
 
   private class ConnectionSubscription(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef) extends Subscription {
-    override def resume() {
+    override def requestMore() {
 
       if (log.isDebugEnabled) {
         log.debug(s"$localAddress -> $remoteAddress resume reading")
@@ -128,7 +128,7 @@ trait TcpConnectedState extends ActorLogging {
       connection ! Tcp.ResumeReading
     }
 
-    override def abort(msg: String) {
+    override def cancel(msg: String) {
 
       log.error(s"$localAddress -> $remoteAddress aborting connection: $msg")
       inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
@@ -137,8 +137,8 @@ trait TcpConnectedState extends ActorLogging {
     }
   }
 
-  private class OutPMConsumer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, closeOnEof: Boolean) extends PMConsumer[ByteString] {
+  private class OutPMSubscriber(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
+    connection: ActorRef, closeOnEof: Boolean) extends PMSubscriber[ByteString] {
     private val writeBuffer = new WriteBuffer(remoteAddress, localAddress, log)
 
     private var subscription: Subscription = NoSubscription
@@ -182,7 +182,7 @@ trait TcpConnectedState extends ActorLogging {
           if (log.isDebugEnabled) {
             log.debug(s"$localAddress -> $remoteAddress resume out stream")
           }
-          subscription.resume()
+          subscription.requestMore()
         case Some(chunks) =>
           chunks.head match {
             case Data(data) =>

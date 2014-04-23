@@ -6,16 +6,16 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMConsumer.{EOF, NoSubscription, Subscription, Chunk}
+import de.leanovate.akka.tcp.PMSubscriber.{EOF, NoSubscription, Subscription, Chunk}
 
 /**
  * Not yet attached stream.
  *
  * All incoming chunks will be buffered white the stream is unattached.
  */
-case class AttachablePMConsumer[A]() extends PMConsumer[A] {
+case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[A] {
   @volatile
-  private var target: PMConsumer[A] = null
+  private var target: PMSubscriber[A] = null
 
   private val chunks = Seq.newBuilder[Chunk[A]]
 
@@ -47,7 +47,7 @@ case class AttachablePMConsumer[A]() extends PMConsumer[A] {
     }
   }
 
-  def attach(_target: PMConsumer[A]) {
+  override def subscribe(_target: PMSubscriber[A]) {
 
     synchronized {
       _target.onSubscribe(subscription)
@@ -63,7 +63,7 @@ case class AttachablePMConsumer[A]() extends PMConsumer[A] {
       if (target ne null) {
         target.onNext(EOF)
       } else {
-        subscription.abort(msg)
+        subscription.cancel(msg)
       }
     }
   }

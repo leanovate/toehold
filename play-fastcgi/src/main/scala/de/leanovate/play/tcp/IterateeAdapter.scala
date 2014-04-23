@@ -8,22 +8,22 @@ package de.leanovate.play.tcp
 
 import play.api.libs.iteratee.{Cont, Done, Iteratee, Input}
 import scala.concurrent.Promise
-import de.leanovate.akka.tcp.PMConsumer.{NoSubscription, EOF, Subscription, Data}
-import de.leanovate.akka.tcp.PMConsumer
+import de.leanovate.akka.tcp.PMSubscriber.{NoSubscription, EOF, Subscription, Data}
+import de.leanovate.akka.tcp.PMSubscriber
 import scala.concurrent.stm.Ref
 
 object IterateeAdapter {
-  def adapt[A](target: PMConsumer[A]): Iteratee[A, Unit] = {
+  def adapt[A](target: PMSubscriber[A]): Iteratee[A, Unit] = {
 
     val lastPromise = Ref[Option[Promise[Iteratee[A, Unit]]]](None)
 
     target.onSubscribe(new Subscription {
-      override def resume() {
+      override def requestMore() {
 
         lastPromise.single.swap(None).foreach(_.success(Cont[A, Unit](step)))
       }
 
-      override def abort(msg: String) {
+      override def cancel(msg: String) {
 
         lastPromise.single.swap(None).foreach(_.failure(new RuntimeException(msg)))
       }

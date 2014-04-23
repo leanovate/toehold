@@ -6,15 +6,15 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMConsumer.{Data, Chunk, Subscription}
+import de.leanovate.akka.tcp.PMSubscriber.{Data, Chunk, Subscription}
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
 
-class PMConsumerSpec extends Specification with ShouldMatchers with Mockito {
+class PMSubscriberSpec extends Specification with ShouldMatchers with Mockito {
   "PMStream" should {
     "should push directly" in {
-      val stream = spy(new NullPMConsumer)
+      val stream = spy(new NullPMSubscriber)
 
       stream.push("Chunk1", "Chunk2", "Chunk3")
 
@@ -24,7 +24,7 @@ class PMConsumerSpec extends Specification with ShouldMatchers with Mockito {
     }
   }
 
-  class NullPMConsumer extends PMConsumer[String] {
+  class NullPMSubscriber extends PMSubscriber[String] {
     override def onSubscribe(subscription: Subscription) {
 
     }

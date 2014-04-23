@@ -6,18 +6,18 @@
 
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMConsumer._
-import de.leanovate.akka.tcp.PMConsumer.Data
+import de.leanovate.akka.tcp.PMSubscriber._
+import de.leanovate.akka.tcp.PMSubscriber.Data
 
 trait PMProcessor[From, To] {
-  def |>(target: PMConsumer[To]): PMConsumer[From]
+  def |>(target: PMSubscriber[To]): PMSubscriber[From]
 
   def |>[A](other: PMProcessor[To, A]) = new PMProcessor.ConcatProcessor(this, other)
 }
 
 object PMProcessor {
   def map[From, To](f: From => To) = new PMProcessor[From, To] {
-    override def |>(target: PMConsumer[To]) = new PMConsumer[From] {
+    override def |>(target: PMSubscriber[To]) = new PMSubscriber[From] {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
@@ -34,7 +34,7 @@ object PMProcessor {
               target.onNext(Data(f(data)))
             } catch {
               case e: Exception =>
-                subscription.abort(e.getMessage)
+                subscription.cancel(e.getMessage)
             }
           case EOF =>
             target.onNext(EOF)
@@ -44,7 +44,7 @@ object PMProcessor {
   }
 
   def mapChunk[From, To](f: Chunk[From] => Chunk[To]) = new PMProcessor[From, To] {
-    override def |>(target: PMConsumer[To]) = new PMConsumer[From] {
+    override def |>(target: PMSubscriber[To]) = new PMSubscriber[From] {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
@@ -58,13 +58,13 @@ object PMProcessor {
           target.onNext(f(chunk))
         } catch {
           case e: Exception =>
-            subscription.abort(e.getMessage)
+            subscription.cancel(e.getMessage)
         }
     }
   }
 
   def flatMapChunk[From, To](f: Chunk[From] => Seq[Chunk[To]]) = new PMProcessor[From, To] {
-    override def |>(target: PMConsumer[To]) = new PMConsumer[From] {
+    override def |>(target: PMSubscriber[To]) = new PMSubscriber[From] {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
@@ -78,13 +78,13 @@ object PMProcessor {
         try {
           val result = f(chunk)
           if (result.isEmpty) {
-            subscription.resume()
+            subscription.requestMore()
           } else {
             result.foreach(target.onNext)
           }
         } catch {
           case e: Exception =>
-            subscription.abort(e.getMessage)
+            subscription.cancel(e.getMessage)
         }
       }
     }
@@ -92,7 +92,7 @@ object PMProcessor {
 
   class ConcatProcessor[From, Mid, To](in: PMProcessor[From, Mid], out: PMProcessor[Mid, To])
     extends PMProcessor[From, To] {
-    override def |>(target: PMConsumer[To]) = in |> (out |> target)
+    override def |>(target: PMSubscriber[To]) = in |> (out |> target)
   }
 
 }

@@ -7,17 +7,17 @@
 package de.leanovate.akka.fastcgi.framing
 
 import org.specs2.mutable.Specification
-import de.leanovate.akka.testutil.CollectingPMConsumer
+import de.leanovate.akka.testutil.CollectingPMSubscriber
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.records.{FCGIEndRequest, FCGIStdErr, FCGIStdOut}
-import de.leanovate.akka.tcp.PMConsumer.{EOF, Data}
+import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data}
 import org.specs2.matcher.ShouldMatchers
 
 class FilterStdOutSpec extends Specification with ShouldMatchers {
   "FilterStdOut" should {
     "only only pass FCGISTdOut records" in {
       val stderrs = Seq.newBuilder[ByteString]
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
 
       pipe.push(FCGIStdOut(1, ByteString("Hello")), FCGIStdErr(1, ByteString("something")),
@@ -30,7 +30,7 @@ class FilterStdOutSpec extends Specification with ShouldMatchers {
 
     "honour eof" in {
       val stderrs = Seq.newBuilder[ByteString]
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
 
       pipe.onNext(Data(FCGIStdOut(1, ByteString("Hello"))))
@@ -46,7 +46,7 @@ class FilterStdOutSpec extends Specification with ShouldMatchers {
 
     "eof on FCGIEndRecord" in {
       val stderrs = Seq.newBuilder[ByteString]
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.filterStdOut(stderr => stderrs += stderr) |> out
 
       pipe.push(FCGIStdOut(1, ByteString("Hello")), FCGIStdErr(1, ByteString("something")),

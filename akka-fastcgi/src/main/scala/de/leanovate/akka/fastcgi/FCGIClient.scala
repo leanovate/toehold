@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{AttachablePMConsumer, PMProcessor, TcpConnectedState}
+import de.leanovate.akka.tcp.{AttachablePMSubscriber, PMProcessor, TcpConnectedState}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 import scala.concurrent.duration.FiniteDuration
@@ -28,7 +28,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       if (log.isDebugEnabled) {
         log.debug(s"Connected $localAddress -> $remoteAddress")
       }
-      val in = new AttachablePMConsumer[ByteString]
+      val in = new AttachablePMSubscriber[ByteString]
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>
           handler.headerReceived(statusCode, statusLine, headers, in)

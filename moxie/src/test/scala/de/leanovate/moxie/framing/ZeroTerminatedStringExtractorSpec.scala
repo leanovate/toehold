@@ -9,13 +9,13 @@ package de.leanovate.moxie.framing
 import org.specs2.mutable.Specification
 import org.specs2.matcher.ShouldMatchers
 import akka.util.ByteString
-import de.leanovate.moxie.testutil.CollectingPMConsumer
-import de.leanovate.akka.tcp.PMConsumer.EOF
+import de.leanovate.moxie.testutil.CollectingPMSubscriber
+import de.leanovate.akka.tcp.PMSubscriber.EOF
 
 class ZeroTerminatedStringExtractorSpec extends Specification with ShouldMatchers {
   "ZeroTerminatedStringExtractor" should {
     "extract all zero terminated strings" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.zeroTerminatedString |> out
 
       pipe.push(ByteString("Hello\0World\0Nothing"))
@@ -26,7 +26,7 @@ class ZeroTerminatedStringExtractorSpec extends Specification with ShouldMatcher
     }
 
     "extract all zero terminstated strings from arbitrary chunks" in {
-      val out = new CollectingPMConsumer[ByteString]
+      val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.zeroTerminatedString |> out
 
       pipe.push(ByteString("Hel"), ByteString("lo\0World\0Not"), ByteString("hing\0"), ByteString("Last"))

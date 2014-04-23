@@ -1,6 +1,6 @@
 package de.leanovate.akka.tcp
 
-import de.leanovate.akka.tcp.PMConsumer.{Data, Chunk}
+import de.leanovate.akka.tcp.PMSubscriber.{Data, Chunk}
 import akka.util.ByteString
 import scala.concurrent.stm.Ref
 import akka.event.LoggingAdapter

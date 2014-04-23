@@ -22,7 +22,7 @@ import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import scala.Some
-import de.leanovate.akka.tcp.AttachablePMConsumer
+import de.leanovate.akka.tcp.AttachablePMSubscriber
 import play.api.mvc.SimpleResult
 import play.api.mvc.ResponseHeader
 import play.api.libs.json.{JsNumber, JsObject}
@@ -39,7 +39,7 @@ trait FastCGIController extends Controller {
         contentType =>
           requestHeader.headers.get("content-length").map {
             contentLength =>
-              val requestContentStream = new AttachablePMConsumer[ByteString]
+              val requestContentStream = new AttachablePMSubscriber[ByteString]
               val requestContent = FCGIRequestContent(contentType, contentLength.toLong, requestContentStream)
               val request = FCGIResponderRequest(
                                                   requestHeader.method,

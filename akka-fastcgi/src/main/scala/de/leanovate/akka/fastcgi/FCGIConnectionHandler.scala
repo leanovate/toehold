@@ -8,12 +8,12 @@ package de.leanovate.akka.fastcgi
 
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import akka.util.ByteString
-import de.leanovate.akka.tcp.{AttachablePMConsumer, PMConsumer}
+import de.leanovate.akka.tcp.{AttachablePMSubscriber, PMSubscriber}
 
 trait FCGIConnectionHandler {
-  def connected(out: PMConsumer[FCGIRecord])
+  def connected(out: PMSubscriber[FCGIRecord])
 
-  def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)], in: AttachablePMConsumer[ByteString])
+  def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)], in: AttachablePMSubscriber[ByteString])
 
   def connectionFailed()
 

@@ -10,10 +10,10 @@ import akka.actor.{ActorSystem, ActorRef, Actor}
 import akka.testkit.{TestProbe, TestActorRef, TestKit}
 import java.net.InetSocketAddress
 import akka.util.ByteString
-import de.leanovate.akka.testutil.CollectingPMConsumer
+import de.leanovate.akka.testutil.CollectingPMSubscriber
 import scala.collection.mutable
 import akka.io.Tcp
-import de.leanovate.akka.tcp.PMConsumer.{EOF, Data, Subscription}
+import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data, Subscription}
 import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
 import org.specs2.mutable.{Specification, After}
 import org.specs2.matcher.ShouldMatchers
@@ -63,7 +63,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 
       mockActor ! TcpConnectedState.WriteAck
 
-      there was one(subscription).resume()
+      there was one(subscription).requestMore()
     }
 
     "buffer all output between Write and WriteAck" in new ConnectedMockActor {
@@ -89,7 +89,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
-      there was one(subscription).resume()
+      there was one(subscription).requestMore()
     }
 
     "close connection immediately if buffer is empty and closeOfRef is true" in new ConnectedMockActor {
@@ -169,7 +169,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 
     val mockConnection = TestActorRef[TcpConnectedStateSpec.MockConnection]
 
-    val inStream = new CollectingPMConsumer[String]
+    val inStream = new CollectingPMSubscriber[String]
 
     mockActor !
       TcpConnectedStateSpec.Connect(InetSocketAddress.createUnresolved("localhost", 1234),
@@ -177,7 +177,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
                                      mockConnection, PMProcessor.map[ByteString, String](_.utf8String) |> inStream,
                                      closeOnEof)
 
-    val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMConsumer[ByteString]]
+    val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMSubscriber[ByteString]]
 
     assertTcpMessages(Tcp.Register(mockActor))
 
@@ -202,7 +202,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 object TcpConnectedStateSpec {
 
   case class Connect(remote: InetSocketAddress, local: InetSocketAddress, connection: ActorRef,
-    inStream: PMConsumer[ByteString], closeOnEof: Boolean)
+    inStream: PMSubscriber[ByteString], closeOnEof: Boolean)
 
   class MockActor extends Actor with TcpConnectedState {
     override def inactivityTimeout = 60.seconds

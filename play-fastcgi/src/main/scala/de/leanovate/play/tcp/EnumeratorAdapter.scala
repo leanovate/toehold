@@ -8,16 +8,16 @@ package de.leanovate.play.tcp
 
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import de.leanovate.akka.tcp.PMConsumer._
-import de.leanovate.akka.tcp.PMConsumer
-import de.leanovate.akka.tcp.PMConsumer.Data
-import de.leanovate.akka.tcp.AttachablePMConsumer
+import de.leanovate.akka.tcp.PMSubscriber._
+import de.leanovate.akka.tcp.PMSubscriber
+import de.leanovate.akka.tcp.PMSubscriber.Data
+import de.leanovate.akka.tcp.AttachablePMSubscriber
 
 object EnumeratorAdapter {
-  def adapt[A](attachable: AttachablePMConsumer[A])(implicit ctx: ExecutionContext): Enumerator[A] = new Enumerator[A] {
+  def adapt[A](attachable: AttachablePMSubscriber[A])(implicit ctx: ExecutionContext): Enumerator[A] = new Enumerator[A] {
     private val resultIteratee = Promise[Iteratee[A, _]]()
 
-    class IterateeConsumer(initial: Iteratee[A, _]) extends PMConsumer[A] {
+    class IterateeSubscriber(initial: Iteratee[A, _]) extends PMSubscriber[A] {
 
       private var currentIteratee = Future.successful(initial)
 
@@ -44,13 +44,13 @@ object EnumeratorAdapter {
           it =>
             it.pureFold {
               case Step.Cont(k) =>
-                subscription.resume()
+                subscription.requestMore()
                 k(input)
               case Step.Done(result, remain) =>
-                subscription.resume()
+                subscription.requestMore()
                 Done(result, remain)
               case Step.Error(msg, remain) =>
-                subscription.abort(msg)
+                subscription.cancel(msg)
                 Error(msg, remain)
             }
         }
@@ -60,7 +60,7 @@ object EnumeratorAdapter {
 
     override def apply[U](i: Iteratee[A, U]) = {
 
-      attachable.attach(new IterateeConsumer(i))
+      attachable.subscribe(new IterateeSubscriber(i))
 
       resultIteratee.future.asInstanceOf[Future[Iteratee[A, U]]]
     }

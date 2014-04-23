@@ -7,19 +7,20 @@
 package de.leanovate.akka.tcp
 
 /**
- * Pull-mode consumer (aka poor man's "reactive" streaming).
+ * Pull-mode subscriber (aka poor man's "reactive" streaming).
  *
  * This is most certainly not the best api for this kind of task, it is just supposed to avoid Future-cascades.
- * Will most likely be removed once akka has its own reactive stream (which might happen with 2.4).
+ * Overall the interface is quite similar to the SPI suggested by reactive-streams.org and therefore might be
+ * easily replaced by akka-streams once they are available (maybe with akka 2.4)
  *
  * You might ask: Why is this called pull-mode when there is a `push` method?
  * The idea is that the stream should always ba able to react to IO events, but has control when the input should be
  * resumed. In return this implies that the IO manager should suspend all further reading until the stream decides to
  * resume.
  */
-trait PMConsumer[A] {
+trait PMSubscriber[A] {
 
-  import PMConsumer._
+  import PMSubscriber._
 
   /**
    * Called once the consumer subscribes/attaches to some sort of producer.
@@ -54,7 +55,7 @@ trait PMConsumer[A] {
   }
 }
 
-object PMConsumer {
+object PMSubscriber {
 
   /**
    * Abstraction of a chunk transmitted to a stream.
@@ -78,12 +79,12 @@ object PMConsumer {
     /**
      * Resume reading (i.e. resume pushing more chunks to the stream).
      */
-    def resume()
+    def requestMore()
 
     /**
      * Abort reading (i.e. interrupt the transmission asap).
      */
-    def abort(msg: String)
+    def cancel(msg: String)
   }
 
   /**
@@ -91,15 +92,15 @@ object PMConsumer {
    * E.g. when all the data is already fully in memory.
    */
   object NoSubscription extends Subscription {
-    override def resume() {}
+    override def requestMore() {}
 
-    override def abort(msg: String) {}
+    override def cancel(msg: String) {}
   }
 
   /**
    * Little helper to create a /dev/null sink.
    */
-  def nullStream[A] = new PMConsumer[A] {
+  def nullStream[A] = new PMSubscriber[A] {
     private var subscription: Subscription = NoSubscription
 
     override def onSubscribe(_subscription: Subscription) {
@@ -107,7 +108,7 @@ object PMConsumer {
     }
 
     override def onNext(chunk: Chunk[A]) {
-      subscription.resume()
+      subscription.requestMore()
     }
   }
 }
