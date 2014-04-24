@@ -3,7 +3,8 @@ name := "parent"
 
 Common.settings
 
-lazy val root = project.in(file(".")).settings(publishArtifact := false).aggregate(akkaFastCgi, playFastCgi, phpFpmSbtPlugin, moxie)
+lazy val root = project.in(file(".")).settings(publishArtifact := false)
+  .aggregate(akkaFastCgi, playFastCgi, phpFpmSbtPlugin, moxie)
 
 lazy val akkaFastCgi = project.in(file("akka-fastcgi"))
 

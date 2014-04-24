@@ -21,11 +21,15 @@ object Common {
       Seq(
            organization := "de.leanovate.toehold",
 
-           scalaVersion := "2.10.3",
+           scalaVersion := "2.10.4",
+
+           scalacOptions ++= Seq("-target:jvm-1.7", "-feature", "-deprecation"),
 
            profileName := "de.leanovate",
 
            resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/",
+
+           publishMavenStyle := true,
 
            pomExtra := {
              <url>https://github.com/leanovate/toehold</url>

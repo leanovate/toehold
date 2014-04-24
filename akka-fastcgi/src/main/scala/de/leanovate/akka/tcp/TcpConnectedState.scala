@@ -6,7 +6,7 @@
 
 package de.leanovate.akka.tcp
 
-import akka.actor.{Cancellable, ActorLogging, Actor, ActorRef}
+import akka.actor.{ActorLogging, Actor, ActorRef}
 import akka.util.ByteString
 import akka.io.Tcp
 import akka.io.Tcp.{Event, ConnectionClosed}
@@ -24,7 +24,7 @@ import akka.io.Tcp.Received
  *
  * All the back-pressure handling happens here.
  */
-trait TcpConnectedState extends ActorLogging {
+trait TcpConnectedState extends TickSupport with ActorLogging {
   actor: Actor =>
 
   def inactivityTimeout: FiniteDuration
@@ -38,8 +38,6 @@ trait TcpConnectedState extends ActorLogging {
   val readDeadline = Ref[Option[Deadline]](None)
 
   val writeDeadline = Ref[Option[Deadline]](None)
-
-  var tickGenerator: Option[Cancellable] = None
 
   def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
     connection: ActorRef, inStream: PMSubscriber[ByteString], closeOnEof: Boolean): PMSubscriber[ByteString] = {
@@ -83,7 +81,7 @@ trait TcpConnectedState extends ActorLogging {
 
         outPMStram.acknowledge()
 
-      case TcpConnectedState.Tick =>
+      case TickSupport.Tick =>
         if (readDeadline.single.get.exists(_.isOverdue())) {
           log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
           connection ! Tcp.Abort
@@ -108,12 +106,6 @@ trait TcpConnectedState extends ActorLogging {
     scheduleTick()
 
     (connected, outPMStram)
-  }
-
-  private def scheduleTick() {
-
-    tickGenerator = Some(context.system.scheduler
-      .scheduleOnce(1 second, self, TcpConnectedState.Tick)(context.dispatcher))
   }
 
   private class ConnectionSubscription(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
@@ -209,7 +201,4 @@ trait TcpConnectedState extends ActorLogging {
 object TcpConnectedState {
 
   private[tcp] case object WriteAck extends Event
-
-  private[tcp] case object Tick
-
 }
