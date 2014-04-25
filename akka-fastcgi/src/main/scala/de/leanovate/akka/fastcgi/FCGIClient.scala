@@ -5,11 +5,12 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{TcpConnectedState, AttachablePMSubscriber, PMProcessor, TcpConnectedSupport}
+import de.leanovate.akka.tcp.{TcpConnectedState, AttachablePMSubscriber, PMProcessor}
 import akka.util.ByteString
-import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
+import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor}
 import scala.concurrent.duration.FiniteDuration
 import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIRequest}
+import de.leanovate.akka.pool.PoolSupport
 
 class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration)
   extends Actor with ActorLogging {
@@ -53,18 +54,38 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
           PMProcessor.flatMapChunk(httpExtractor) |> inStream
 
       val state = new TcpConnectedState(sender, remoteAddress, localAddress,
-        pipeline, becomeDisconnected, closeOnEof = false, inactivityTimeout, suspendTimeout, log)
+        pipeline, becomeDisconnecting, becomeDisconnected, closeOnEof = false, inactivityTimeout, suspendTimeout, log)
       connectedState = Some(state)
 
       currentRequest.foreach(_._1.writeTo(1, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> state.outStream))
 
-      context.parent ! FCGIClient.BecomeActive
+      context.parent ! PoolSupport.IamBusy
       context become state.receive
+  }
+
+  def disconnecting: Actor.Receive = {
+    case request: FCGIRequest =>
+      currentRequest = Some(request, sender)
+    case c: ConnectionClosed =>
+      if (log.isDebugEnabled) {
+        log.debug(s"connection closed: $c")
+      }
+      if (currentRequest.isDefined) {
+        IO(Tcp) ! Connect(remote)
+        context become connecting
+      } else {
+        becomeDisconnected()
+      }
+  }
+
+  def becomeDisconnecting() {
+    connectedState = None
+    context become disconnecting
   }
 
   def becomeDisconnected() {
     connectedState = None
-    context.parent ! FCGIClient.BecomeDisconnected
+    context.parent ! PoolSupport.IamFree
     context become disconnected
   }
 
@@ -72,7 +93,6 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
 
     log.error(s"Stderr: ${stderr.utf8String}")
   }
-
 }
 
 object FCGIClient {
@@ -81,12 +101,4 @@ object FCGIClient {
 
   def props(remote: InetSocketAddress, inactivityTimeout: FiniteDuration, idleTimeout: FiniteDuration) =
     Props(classOf[FCGIClient], remote, inactivityTimeout, idleTimeout)
-
-  private[fastcgi] case object BecomeConnected
-
-  private[fastcgi] case object BecomeActive
-
-  private[fastcgi] case object BecomeIdle
-
-  private[fastcgi] case object BecomeDisconnected
 }

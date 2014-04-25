@@ -54,7 +54,7 @@ trait TcpConnectedSupport extends TickSupport with ActorLogging {
     }
 
     val state = new TcpConnectedState(connection, remoteAddress, localAddress,
-      inStream, onDisconnected, closeOnEof, inactivityTimeout, suspendTimeout, log)
+      inStream, () => {}, onDisconnected, closeOnEof, inactivityTimeout, suspendTimeout, log)
     connectedState = Some(state)
 
     (state.receive, state.outStream)

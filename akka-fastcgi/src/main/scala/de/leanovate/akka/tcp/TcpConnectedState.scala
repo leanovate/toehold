@@ -29,6 +29,7 @@ class TcpConnectedState(connection: ActorRef,
                         remoteAddress: InetSocketAddress,
                         localAddress: InetSocketAddress,
                         inStream: PMSubscriber[ByteString],
+                        onClosing: () => Unit,
                         onDisconnect: () => Unit,
                         closeOnEof: Boolean,
                         inactivityTimeout: FiniteDuration,
@@ -82,12 +83,15 @@ class TcpConnectedState(connection: ActorRef,
       if (readDeadline.single.get.exists(_.isOverdue())) {
         log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
         connection ! Tcp.Abort
+        onClosing()
       } else if (writeDeadline.single.get.exists(_.isOverdue())) {
         log.error(s"$localAddress -> $remoteAddress timed out in suspend write for >= $suspendTimeout")
         connection ! Tcp.Abort
+        onClosing()
       } else if (inactivityDeadline.single.get.isOverdue()) {
         log.error(s"$localAddress -> $remoteAddress was inactive for >= $inactivityTimeout")
         connection ! Tcp.Abort
+        onClosing()
       }
       scheduleTick()
 
@@ -105,6 +109,7 @@ class TcpConnectedState(connection: ActorRef,
       log.debug(s"$localAddress -> $remoteAddress is aborting")
     }
     connection ! Tcp.Abort
+    onClosing()
   }
 
   private def scheduleTick() {
@@ -131,6 +136,7 @@ class TcpConnectedState(connection: ActorRef,
       inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
       readDeadline.single.set(None)
       connection ! Tcp.Abort
+      onClosing()
     }
   }
 
@@ -163,6 +169,7 @@ class TcpConnectedState(connection: ActorRef,
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(None)
               connection ! Tcp.Close
+              onClosing()
             case EOF =>
           }
         case _ =>
@@ -194,11 +201,11 @@ class TcpConnectedState(connection: ActorRef,
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(None)
+              onClosing()
               connection ! Tcp.Close
             case EOF =>
           }
       }
     }
   }
-
 }
