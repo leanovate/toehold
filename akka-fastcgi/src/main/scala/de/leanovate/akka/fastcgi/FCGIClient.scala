@@ -5,13 +5,13 @@ import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{AttachablePMSubscriber, PMProcessor, TcpConnectedState}
+import de.leanovate.akka.tcp.{AttachablePMSubscriber, PMProcessor, TcpConnectedSupport}
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor, BytesToFCGIRecords, FilterStdOut}
 import scala.concurrent.duration.FiniteDuration
 
 class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration,
-  handler: FCGIConnectionHandler) extends Actor with TcpConnectedState {
+  handler: FCGIConnectionHandler) extends Actor with TcpConnectedSupport {
 
   import context.system
 

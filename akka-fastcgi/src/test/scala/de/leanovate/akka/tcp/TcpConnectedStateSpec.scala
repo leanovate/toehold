@@ -14,7 +14,7 @@ import de.leanovate.akka.testutil.CollectingPMSubscriber
 import scala.collection.mutable
 import akka.io.Tcp
 import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data, Subscription}
-import de.leanovate.akka.tcp.TcpConnectedState.WriteAck
+import de.leanovate.akka.tcp.TcpConnectedSupport.WriteAck
 import org.specs2.mutable.{Specification, After}
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
@@ -61,7 +61,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedState.WriteAck
+      mockActor ! TcpConnectedSupport.WriteAck
 
       there was one(subscription).requestMore()
     }
@@ -81,12 +81,12 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       assertTcpMessages()
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedState.WriteAck
+      mockActor ! TcpConnectedSupport.WriteAck
 
       assertTcpMessages(Tcp.Write(ByteString("some more out"), WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedState.WriteAck
+      mockActor ! TcpConnectedSupport.WriteAck
 
       assertTcpMessages()
       there was one(subscription).requestMore()
@@ -117,7 +117,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedState.WriteAck
+      mockActor ! TcpConnectedSupport.WriteAck
 
       assertTcpMessages(Tcp.Close)
       there was noCallsTo(subscription)
@@ -135,7 +135,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedState.WriteAck
+      mockActor ! TcpConnectedSupport.WriteAck
 
       assertTcpMessages()
       there was noCallsTo(subscription)
@@ -204,7 +204,7 @@ object TcpConnectedStateSpec {
   case class Connect(remote: InetSocketAddress, local: InetSocketAddress, connection: ActorRef,
     inStream: PMSubscriber[ByteString], closeOnEof: Boolean)
 
-  class MockActor extends Actor with TcpConnectedState {
+  class MockActor extends Actor with TcpConnectedSupport {
     override def inactivityTimeout = 60.seconds
 
     override def suspendTimeout = 20.seconds

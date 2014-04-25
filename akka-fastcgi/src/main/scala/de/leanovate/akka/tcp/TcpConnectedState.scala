@@ -1,115 +1,106 @@
-/*    _             _           _     _                            *\
-**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
-**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
-**   | || (_) |  __/ | | | (_) | | (_| |                           **
-\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
-
 package de.leanovate.akka.tcp
 
-import akka.actor.{ActorLogging, Actor, ActorRef}
-import akka.util.ByteString
-import akka.io.Tcp
-import akka.io.Tcp.{Event, ConnectionClosed}
-import de.leanovate.akka.tcp.PMSubscriber._
-import scala.concurrent.stm._
 import java.net.InetSocketAddress
-import scala.concurrent.duration._
-import akka.io.Tcp.Register
+import akka.actor.{Actor, ActorContext, Cancellable, ActorRef}
+import de.leanovate.akka.tcp.PMSubscriber._
+import akka.io.Tcp
+import akka.util.ByteString
 import de.leanovate.akka.tcp.PMSubscriber.Data
 import scala.Some
-import akka.io.Tcp.Received
+import akka.event.LoggingAdapter
+import scala.concurrent.stm.Ref
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import akka.io.Tcp.{ConnectionClosed, Received}
 
-/**
- * Helper for the connected state of an actor doing some sort of tcp communication.
- *
- * All the back-pressure handling happens here.
- */
-trait TcpConnectedState extends TickSupport with ActorLogging {
-  actor: Actor =>
+class TcpConnectedState(connection: ActorRef,
+                        remoteAddress: InetSocketAddress,
+                        localAddress: InetSocketAddress,
+                        inStream: PMSubscriber[ByteString],
+                        onDisconnect: () => Unit,
+                        closeOnEof: Boolean,
+                        inactivityTimeout: FiniteDuration,
+                        suspendTimeout: FiniteDuration,
+                        log: LoggingAdapter)(implicit self: ActorRef, context: ActorContext) {
 
-  def inactivityTimeout: FiniteDuration
+  private val tickTime = 1.second
 
-  def suspendTimeout: FiniteDuration
+  private var tickGenerator: Option[Cancellable] = None
 
-  def becomeDisconnected()
+  private val inactivityDeadline = Ref[Deadline](Deadline.now + inactivityTimeout)
 
-  val inactivityDeadline =  Ref[Deadline](Deadline.now + inactivityTimeout)
+  private val readDeadline = Ref[Option[Deadline]](None)
 
-  val readDeadline = Ref[Option[Deadline]](None)
+  private val writeDeadline = Ref[Option[Deadline]](None)
 
-  val writeDeadline = Ref[Option[Deadline]](None)
+  private val outPMSubscriber = new OutPMSubscriber
 
-  def becomeConnected(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMSubscriber[ByteString], closeOnEof: Boolean): PMSubscriber[ByteString] = {
+  inStream.onSubscribe(new ConnectionSubscription)
 
-    val (connected, outPMStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof)
+  scheduleTick()
 
-    connection ! Register(self)
+  def outStream: PMSubscriber[ByteString] = outPMSubscriber
 
-    context become connected
-    outPMStream
+  def receive: Actor.Receive = {
+
+    case Received(data) =>
+      if (log.isDebugEnabled) {
+        log.debug(s"$localAddress -> $remoteAddress receive chunk: ${data.length} bytes")
+      }
+      inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
+      readDeadline.single.set(Some(Deadline.now + suspendTimeout))
+      // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
+      // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
+      connection ! Tcp.SuspendReading
+
+      inStream.onNext(PMSubscriber.Data(data))
+
+    case TcpConnectedSupport.WriteAck =>
+      if (log.isDebugEnabled) {
+        log.debug(s"$localAddress -> $remoteAddress inner write ack")
+      }
+      inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
+      writeDeadline.single.set(None)
+
+      outPMSubscriber.acknowledge()
+
+    case TickSupport.Tick =>
+      if (readDeadline.single.get.exists(_.isOverdue())) {
+        log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
+        connection ! Tcp.Abort
+      } else if (writeDeadline.single.get.exists(_.isOverdue())) {
+        log.error(s"$localAddress -> $remoteAddress timed out in suspend write for >= $suspendTimeout")
+        connection ! Tcp.Abort
+      } else if (inactivityDeadline.single.get.isOverdue()) {
+        log.error(s"$localAddress -> $remoteAddress was inactive for >= $inactivityTimeout")
+        connection ! Tcp.Abort
+      }
+      scheduleTick()
+
+    case c: ConnectionClosed =>
+      if (log.isDebugEnabled) {
+        log.debug(s"$localAddress -> $remoteAddress connection closed: $c")
+      }
+      inStream.onNext(PMSubscriber.EOF)
+      tickGenerator.foreach(_.cancel())
+      onDisconnect()
   }
 
-  def connectedState(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, inStream: PMSubscriber[ByteString],
-    closeOnEof: Boolean): (Actor.Receive, PMSubscriber[ByteString]) = {
-
-    val outPMStram = new OutPMSubscriber(remoteAddress, localAddress, connection, closeOnEof)
-
-    inStream.onSubscribe(new ConnectionSubscription(remoteAddress, localAddress, connection))
-
-    def connected: Actor.Receive = {
-
-      case Received(data) =>
-        if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress receive chunk: ${data.length} bytes")
-        }
-        inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
-        readDeadline.single.set(Some(Deadline.now + suspendTimeout))
-        // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
-        // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
-        connection ! Tcp.SuspendReading
-
-        inStream.onNext(PMSubscriber.Data(data))
-
-      case TcpConnectedState.WriteAck =>
-        if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress inner write ack")
-        }
-        inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
-        writeDeadline.single.set(None)
-
-        outPMStram.acknowledge()
-
-      case TickSupport.Tick =>
-        if (readDeadline.single.get.exists(_.isOverdue())) {
-          log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
-          connection ! Tcp.Abort
-        } else if (writeDeadline.single.get.exists(_.isOverdue())) {
-          log.error(s"$localAddress -> $remoteAddress timed out in suspend write for >= $suspendTimeout")
-          connection ! Tcp.Abort
-        } else if ( inactivityDeadline.single.get.isOverdue() ) {
-          log.error(s"$localAddress -> $remoteAddress was inactive for >= $inactivityTimeout")
-          connection ! Tcp.Abort
-        }
-        scheduleTick()
-
-      case c: ConnectionClosed =>
-        if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress connection closed: $c")
-        }
-        inStream.onNext(PMSubscriber.EOF)
-        tickGenerator.foreach(_.cancel())
-        becomeDisconnected()
+  def close() {
+    if (log.isDebugEnabled) {
+      log.debug(s"$localAddress -> $remoteAddress is aborting")
     }
-
-    scheduleTick()
-
-    (connected, outPMStram)
+    connection ! Tcp.Abort
   }
 
-  private class ConnectionSubscription(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef) extends Subscription {
+  private def scheduleTick() {
+
+    tickGenerator.foreach(_.cancel())
+    tickGenerator = Some(context.system.scheduler
+      .scheduleOnce(tickTime, self, TickSupport.Tick)(context.dispatcher))
+  }
+
+  private class ConnectionSubscription extends Subscription {
     override def requestMore() {
 
       if (log.isDebugEnabled) {
@@ -129,8 +120,7 @@ trait TcpConnectedState extends TickSupport with ActorLogging {
     }
   }
 
-  private class OutPMSubscriber(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress,
-    connection: ActorRef, closeOnEof: Boolean) extends PMSubscriber[ByteString] {
+  private class OutPMSubscriber extends PMSubscriber[ByteString] {
     private val writeBuffer = new WriteBuffer(remoteAddress, localAddress, log)
 
     private var subscription: Subscription = NoSubscription
@@ -151,7 +141,7 @@ trait TcpConnectedState extends TickSupport with ActorLogging {
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
-              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -183,7 +173,7 @@ trait TcpConnectedState extends TickSupport with ActorLogging {
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
-              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
             case EOF if closeOnEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -196,9 +186,5 @@ trait TcpConnectedState extends TickSupport with ActorLogging {
       }
     }
   }
-}
 
-object TcpConnectedState {
-
-  private[tcp] case object WriteAck extends Event
 }

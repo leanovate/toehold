@@ -1,14 +1,14 @@
 package de.leanovate.moxie.server
 
 import akka.actor.{ActorRef, Props, ActorLogging, Actor}
-import de.leanovate.akka.tcp.{PMSubscriber, TcpConnectedState}
+import de.leanovate.akka.tcp.{PMSubscriber, TcpConnectedSupport}
 import java.net.InetSocketAddress
 import de.leanovate.moxie.framing.Framing
 import play.api.libs.json.JsValue
 import scala.concurrent.duration._
 
 class MoxieHandler(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, connection: ActorRef)
-  extends Actor with ActorLogging with TcpConnectedState {
+  extends Actor with ActorLogging with TcpConnectedSupport {
 
   val inactivityTimeout = 60.seconds
 
