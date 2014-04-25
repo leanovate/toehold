@@ -23,7 +23,7 @@ object Common {
 
            scalaVersion := "2.10.4",
 
-           scalacOptions ++= Seq("-target:jvm-1.7", "-feature", "-deprecation"),
+           scalacOptions ++= Seq("-feature", "-deprecation"),
 
            profileName := "de.leanovate",
 
