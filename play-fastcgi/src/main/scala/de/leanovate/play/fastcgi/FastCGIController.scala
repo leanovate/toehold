@@ -25,7 +25,7 @@ import scala.Some
 import de.leanovate.akka.tcp.AttachablePMSubscriber
 import play.api.mvc.SimpleResult
 import play.api.mvc.ResponseHeader
-import play.api.libs.json.{JsNumber, JsObject}
+import play.api.libs.json.{Json, JsNumber, JsObject}
 
 trait FastCGIController extends Controller {
   def serveFromUri(path: String, extension: String = "", documentRoot: Option[String] = None): EssentialAction =
@@ -84,7 +84,11 @@ trait FastCGIController extends Controller {
     implicit val timeout = settings.requestTimeout
     (requestActor ? FCGIQueryStatus).map {
       case status: FCGIStatus =>
-        Ok(JsObject(Seq("openConnections" -> JsNumber(status.openConnections))))
+        Ok(Json.obj(
+          "activeConnections" -> JsNumber(status.activeConnections),
+          "idleConnections" -> JsNumber(status.idleConnections),
+          "disconnected" -> JsNumber(status.disconnected)
+        ))
     }
   }
 

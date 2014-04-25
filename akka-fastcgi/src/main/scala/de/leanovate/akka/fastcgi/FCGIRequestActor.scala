@@ -8,74 +8,76 @@ package de.leanovate.akka.fastcgi
 
 import akka.actor._
 import de.leanovate.akka.fastcgi.request._
-import de.leanovate.akka.fastcgi.records.FCGIRecord
-import akka.util.ByteString
-import de.leanovate.akka.tcp.PMSubscriber
 import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
-import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import akka.actor.Terminated
-import de.leanovate.akka.tcp.AttachablePMSubscriber
 import scala.concurrent.duration.FiniteDuration
+import scala.collection.mutable
 
-class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration)
-  extends Actor with ActorLogging {
+class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration,
+                       maxConnections: Int) extends Actor with ActorLogging {
 
-  import context.dispatcher
+  val disconnectedClients = mutable.Queue.empty[ActorRef]
+  val activeClients = mutable.Set.empty[ActorRef]
+  val pendingRequests = mutable.Queue.empty[(FCGIRequest, ActorRef)]
 
-  var openConnections: Int = 0
+  var count = 0
 
   context.system.eventStream.subscribe(self, classOf[FCGIResponderSuccess])
+
+  Range(0, maxConnections).foreach {
+    _ =>
+      createClient()
+  }
 
   override def receive = {
 
     case FCGIQueryStatus =>
-      sender ! FCGIStatus(openConnections)
+      sender ! FCGIStatus(activeClients.size, 0, disconnectedClients.size)
 
     case request: FCGIResponderRequest =>
-      openConnections += 1
-      newClient(request, sender)
+      if (disconnectedClients.isEmpty)
+        pendingRequests.enqueue((request, sender))
+      else
+        disconnectedClients.dequeue().tell(request, sender)
 
     case deadResponse: FCGIResponderSuccess =>
       deadResponse.content.abort("Response went to deadLetter (most likely due to timeout)")
 
+    case FCGIClient.BecomeActive =>
+      activeClients.add(sender)
+
+    case FCGIClient.BecomeDisconnected =>
+      activeClients.remove(sender)
+      if (pendingRequests.isEmpty)
+        disconnectedClients.enqueue(sender)
+      else {
+        val (request, target) = pendingRequests.dequeue()
+        sender.tell(request, target)
+      }
+
     case Terminated(client) =>
+      activeClients.remove(sender)
+      disconnectedClients.dequeueAll(_ == client)
       if (log.isDebugEnabled) {
         log.debug(s"FCGIClient terminated $client")
       }
-      openConnections -= 1
+      createClient()
   }
 
-  private def newClient(request: FCGIResponderRequest, target: ActorRef) = {
+  private def createClient() {
 
-    val handler = new FCGIConnectionHandler {
-      override def connected(outStream: PMSubscriber[FCGIRecord]) = {
-
-        request.writeTo(1, outStream)
-      }
-
-      override def headerReceived(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-        in: AttachablePMSubscriber[ByteString]) = {
-
-        target ! FCGIResponderSuccess(statusCode, statusLine, headers, in)
-      }
-
-      override def connectionFailed() {
-
-        target ! FCGIResponderError(s"Connection to FastCGI process $host:$port failed")
-      }
-    }
-
-    val client = context.actorOf(FCGIClient.props(host, port, inactivityTimeout, suspendTimeout, handler))
+    val client = context.actorOf(FCGIClient.props(host, port, inactivityTimeout, suspendTimeout), s"FCGIClient$count")
     if (log.isDebugEnabled) {
-      log.debug(s"New FCGIClient $client")
+      log.debug(s"Create FCGIClient $client")
     }
+    count += 1
     context.watch(client)
-    client
+    disconnectedClients.enqueue(client)
   }
 }
 
 object FCGIRequestActor {
-  def props(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration) =
-    Props(classOf[FCGIRequestActor], host, port, inactivityTimeout, suspendTimeout)
+  def props(host: String, port: Int, inactivityTimeout: FiniteDuration, suspendTimeout: FiniteDuration, maxConnections: Int) =
+    Props(classOf[FCGIRequestActor], host, port, inactivityTimeout, suspendTimeout, maxConnections)
 }

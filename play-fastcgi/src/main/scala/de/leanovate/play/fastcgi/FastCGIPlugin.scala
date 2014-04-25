@@ -34,21 +34,22 @@ class FastCGIPlugin(app: Application) extends Plugin {
 
     val confSettings =
       FastCGISettings(
-                       documentRoot = configuration.getString("fastcgi.documentRoot").map(new File(_))
-                         .getOrElse(new File("./php")),
-                       requestTimeout = app.configuration.getMilliseconds("fastcgi.requestTimeout")
-                         .map(Timeout.apply).getOrElse(new Timeout(1.minute)),
-                       suspendTimeout = app.configuration.getMilliseconds("fastcgi.suspendTimeout")
-                         .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS)).getOrElse(20.seconds),
-                       host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
-                       port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
-                       fileWhiteList = app.configuration.getStringList("fastcgi.assets.whitelist")
-                         .map(_.toSet).getOrElse(Set("gif", "png", "js", "css", "jpg"))
-                     )
+        documentRoot = configuration.getString("fastcgi.documentRoot").fold(new File("./php"))(new File(_)),
+        requestTimeout = app.configuration.getMilliseconds("fastcgi.requestTimeout")
+          .fold(new Timeout(1.minute))(Timeout.apply),
+        suspendTimeout = app.configuration.getMilliseconds("fastcgi.suspendTimeout").fold(20.seconds)
+          (FiniteDuration.apply(_, TimeUnit.MILLISECONDS)),
+        maxConnections = app.configuration.getInt("fastcgi.maxConnections").getOrElse(50),
+        host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
+        port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
+        fileWhiteList = app.configuration.getStringList("fastcgi.assets.whitelist")
+          .fold(Set("gif", "png", "js", "css", "jpg"))(_.toSet)
+      )
     _settings = Some(confSettings)
     _requestActor = Some(Akka.system(app)
       .actorOf(FCGIRequestActor
-      .props(confSettings.host, confSettings.port, confSettings.requestTimeout.duration, confSettings.suspendTimeout),
+      .props(confSettings.host, confSettings.port,
+        confSettings.requestTimeout.duration, confSettings.suspendTimeout, confSettings.maxConnections),
         FASTCGI_ACTOR_NAME))
   }
 

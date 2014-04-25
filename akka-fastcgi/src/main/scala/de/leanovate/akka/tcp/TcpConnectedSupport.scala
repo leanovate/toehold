@@ -40,8 +40,6 @@ trait TcpConnectedSupport extends TickSupport with ActorLogging {
 
     val (connected, outPMStream) = connectedState(remoteAddress, localAddress, connection, inStream, closeOnEof)
 
-    connection ! Register(self)
-
     context become connected
     outPMStream
   }

@@ -1,3 +1,9 @@
+/*    _             _           _     _                            *\
+**   | |_ ___   ___| |__   ___ | | __| |   License: MIT  (2014)    **
+**   | __/ _ \ / _ \ '_ \ / _ \| |/ _` |                           **
+**   | || (_) |  __/ | | | (_) | | (_| |                           **
+\*    \__\___/ \___|_| |_|\___/|_|\__,_|                           */
+
 package de.leanovate.akka.tcp
 
 import java.net.InetSocketAddress
@@ -11,8 +17,14 @@ import akka.event.LoggingAdapter
 import scala.concurrent.stm.Ref
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import akka.io.Tcp.{ConnectionClosed, Received}
+import akka.io.Tcp.{Register, ConnectionClosed, Received}
 
+/**
+ * Common code shared by tcp client and server actors that are in a connected state.
+ *
+ * The main difference between client and server is how the connection is established and what should happen on
+ * a disconnect.
+ */
 class TcpConnectedState(connection: ActorRef,
                         remoteAddress: InetSocketAddress,
                         localAddress: InetSocketAddress,
@@ -36,6 +48,8 @@ class TcpConnectedState(connection: ActorRef,
   private val outPMSubscriber = new OutPMSubscriber
 
   inStream.onSubscribe(new ConnectionSubscription)
+
+  connection ! Register(self)
 
   scheduleTick()
 
