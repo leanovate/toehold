@@ -3,9 +3,12 @@ package scenario
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.core.scenario.AtOnceInjection
+import bootstrap._
 
 class HelloSimulation extends Simulation {
-  val scn = scenario("Get hello world").exec(http("Hello world page").get("http://localhost:9000/hello.php"))
+  val scn = scenario("Get hello world").repeat(100) {
+    exec(http("Hello world page").get("http://localhost:9000/hello.php"))
+  }
 
-  setUp(scn.inject(AtOnceInjection(10)))
+  setUp(scn.inject(AtOnceInjection(100)))
 }

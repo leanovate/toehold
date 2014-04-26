@@ -57,7 +57,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
         pipeline, becomeDisconnecting, becomeDisconnected, closeOnEof = false, inactivityTimeout, suspendTimeout, log)
       connectedState = Some(state)
 
-      currentRequest.foreach(_._1.writeTo(1, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> state.outStream))
+      currentRequest.foreach(_._1.writeTo(1, keepAlive = false, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> state.outStream))
 
       context.parent ! PoolSupport.IamBusy
       context become state.receive

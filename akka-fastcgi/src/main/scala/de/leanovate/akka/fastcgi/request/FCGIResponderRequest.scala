@@ -26,9 +26,9 @@ case class FCGIResponderRequest(
                                  optContent: Option[FCGIRequestContent]
                                  ) extends FCGIRequest {
 
-  override def writeTo(id: Int, out: PMSubscriber[FCGIRecord]) {
+  override def writeTo(id: Int, keepAlive:Boolean, out: PMSubscriber[FCGIRecord]) {
 
-    val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive = false)
+    val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive)
     val params = FCGIParams(id, (
       Seq(
         "SCRIPT_FILENAME" -> (documentRoot.getCanonicalPath + scriptName),

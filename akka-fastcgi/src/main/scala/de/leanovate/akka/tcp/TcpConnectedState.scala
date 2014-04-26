@@ -82,16 +82,13 @@ class TcpConnectedState(connection: ActorRef,
     case TickSupport.Tick =>
       if (readDeadline.single.get.exists(_.isOverdue())) {
         log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
-        connection ! Tcp.Abort
-        onClosing()
+        abort()
       } else if (writeDeadline.single.get.exists(_.isOverdue())) {
         log.error(s"$localAddress -> $remoteAddress timed out in suspend write for >= $suspendTimeout")
-        connection ! Tcp.Abort
-        onClosing()
+        abort()
       } else if (inactivityDeadline.single.get.isOverdue()) {
         log.error(s"$localAddress -> $remoteAddress was inactive for >= $inactivityTimeout")
-        connection ! Tcp.Abort
-        onClosing()
+        abort()
       }
       scheduleTick()
 
@@ -101,13 +98,17 @@ class TcpConnectedState(connection: ActorRef,
       }
       inStream.onNext(PMSubscriber.EOF)
       tickGenerator.foreach(_.cancel())
+      tickGenerator = None
       onDisconnect()
   }
 
-  def close() {
+  def abort() {
     if (log.isDebugEnabled) {
       log.debug(s"$localAddress -> $remoteAddress is aborting")
     }
+    inStream.onNext(PMSubscriber.EOF)
+    tickGenerator.foreach(_.cancel())
+    tickGenerator = None
     connection ! Tcp.Abort
     onClosing()
   }
@@ -133,10 +134,7 @@ class TcpConnectedState(connection: ActorRef,
     override def cancel(msg: String) {
 
       log.error(s"$localAddress -> $remoteAddress aborting connection: $msg")
-      inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
-      readDeadline.single.set(None)
-      connection ! Tcp.Abort
-      onClosing()
+      abort()
     }
   }
 
@@ -201,8 +199,8 @@ class TcpConnectedState(connection: ActorRef,
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(None)
-              onClosing()
               connection ! Tcp.Close
+              onClosing()
             case EOF =>
           }
       }
