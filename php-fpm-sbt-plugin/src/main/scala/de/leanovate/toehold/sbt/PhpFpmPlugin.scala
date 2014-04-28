@@ -64,15 +64,14 @@ object PhpFpmPlugin extends Plugin {
 
   def startPhpFpmCommand(base: File, phpFpmExecs: Seq[String]): Command = Command.args("start-php-fpm", "<args>") {
     (state, args) =>
-      state.get(phpFpmProcess).map {
-        _ =>
-          state.log.info("Already started")
-          state
-      }.getOrElse {
+      state.get(phpFpmProcess).fold {
         try {
           val project = Project.extract(state)
           val (nextState, config) = project.runTask(phpFpmConfig, state)
-          createPhpFpmProcess(state.log, base, phpFpmExecs, config, args: _*).map {
+          createPhpFpmProcess(state.log, base, phpFpmExecs, config, args: _*).fold {
+            state.log.warn(s"No executable found for php-fpm")
+            state
+          } {
             processBuilder =>
               val process = processBuilder.run()
               val terminator = new Thread {
@@ -83,26 +82,27 @@ object PhpFpmPlugin extends Plugin {
               java.lang.Runtime.getRuntime.addShutdownHook(terminator)
 
               nextState.put(phpFpmProcess, (process, terminator))
-          }.getOrElse {
-            state.log.warn(s"No executable found for php-fpm")
-            state
           }
         } catch {
           case e: Exception =>
             state.log.warn(s"Unable to start php-fpm process: ${e.getMessage}")
             state
         }
+      } {
+        _ =>
+          state.log.info("Already started")
+          state
       }
   }
 
   def stopPhpFpmProcess(base: File): Command = Command.args("stop-php-fpm", "<>") {
     (state, args) =>
-      state.get(phpFpmProcess).map {
+      state.get(phpFpmProcess).fold(state) {
         case (process, terminator) =>
           process.destroy()
           java.lang.Runtime.getRuntime.removeShutdownHook(terminator)
           state.remove(phpFpmProcess)
-      }.getOrElse(state)
+      }
   }
 
   def phpFpmRunHook(state: State, log: Logger, base: File, phpFpmExecs: Seq[String], config: File) = new PlayRunHook {
@@ -113,7 +113,10 @@ object PhpFpmPlugin extends Plugin {
 
       state.get(phpFpmProcess).getOrElse {
         try {
-          createPhpFpmProcess(state.log, base, phpFpmExecs, config).map {
+          createPhpFpmProcess(state.log, base, phpFpmExecs, config).fold {
+            state.log.warn(s"No executable found for php-fpm")
+            state
+          } {
             processBuilder =>
               val process = processBuilder.run()
               val terminator = new Thread {
@@ -123,9 +126,7 @@ object PhpFpmPlugin extends Plugin {
               }
               java.lang.Runtime.getRuntime.addShutdownHook(terminator)
               processAndTerminator = Some(process, terminator)
-          }.getOrElse {
-            state.log.warn(s"No executable found for php-fpm")
-            state
+              state
           }
         } catch {
           case e: Exception =>

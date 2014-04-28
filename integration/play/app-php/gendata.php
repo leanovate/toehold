@@ -9,12 +9,12 @@ function generateRandomString($length = 10) {
     return $randomString;
 }
 
-$chunk = generateRandomString(8191) . '\n';
-$a = intval($_GET['chunks']);
+$line = generateRandomString(8191) . "\n";
+$a = intval($_GET['lines']);
 
-echo md5($chunk) . '\n';
+echo md5($line) . "\n";
 
 for ( $i = 0; $i < $a; $i++ ) {
-    echo $chunk;
+    echo $line;
     ob_flush();
 }

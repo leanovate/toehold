@@ -18,6 +18,7 @@ class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuratio
 
   var count = 0
 
+  context.system.dispatchers
   context.system.eventStream.subscribe(self, classOf[FCGIResponderSuccess])
 
   initializePool(maxConnections)

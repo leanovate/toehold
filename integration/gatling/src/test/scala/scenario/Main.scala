@@ -7,7 +7,8 @@ import io.gatling.core.result.reader.DataReader
 import io.gatling.charts.report.ReportsGenerator
 
 object Main extends App {
-  val selection = Selection(classOf[HelloSimulation].asInstanceOf[Class[Simulation]], "HelloSimulation", "Hello world")
+//  val selection = Selection(classOf[HelloSimulation].asInstanceOf[Class[Simulation]], "HelloSimulation", "Hello world")
+  val selection = Selection(classOf[GenDataSimulation].asInstanceOf[Class[Simulation]], "GenDataSimulation", "Generate data")
 
   GatlingConfiguration.setUp()
 

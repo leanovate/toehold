@@ -7,7 +7,12 @@ import bootstrap._
 
 class HelloSimulation extends Simulation {
   val scn = scenario("Get hello world").repeat(100) {
-    exec(http("Hello world page").get("http://localhost:9000/hello.php"))
+    exec(
+      http("Hello world page")
+        .get("http://localhost:9000/hello.php")
+        .check(
+          bodyString.is("Hello World")
+        ))
   }
 
   setUp(scn.inject(AtOnceInjection(100)))

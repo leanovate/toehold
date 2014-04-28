@@ -32,51 +32,51 @@ trait FastCGIController extends Controller {
     serveScript(path + extension, path + extension, documentRoot)
 
   def serveScript(scriptName: String, uri: String, documentRoot: Option[String] = None,
-    additionalEnv: Seq[(String, String)] = Seq.empty) = EssentialAction {
+                  additionalEnv: Seq[(String, String)] = Seq.empty) = EssentialAction {
     requestHeader =>
       implicit val timeout = settings.requestTimeout
-      requestHeader.contentType.map {
-        contentType =>
-          requestHeader.headers.get("content-length").map {
-            contentLength =>
-              val requestContentStream = new AttachablePMSubscriber[ByteString]
-              val requestContent = FCGIRequestContent(contentType, contentLength.toLong, requestContentStream)
-              val request = FCGIResponderRequest(
-                                                  requestHeader.method,
-                                                  "/" + scriptName,
-                                                  "/" + uri,
-                                                  requestHeader.rawQueryString,
-                                                  documentRoot.map(new File(_)).getOrElse(settings.documentRoot),
-                                                  requestHeader.headers.toMap,
-                                                  additionalEnv,
-                                                  Some(requestContent)
-                                                )
-              val resultFuture = requestActor ? request
-
-              IterateeAdapter.adapt(Framing.byteArrayToByteString |> requestContentStream).mapM {
-                _ => mapResultFuture(resultFuture)
-              }
-          }.getOrElse {
-            Iteratee.ignore[Array[Byte]].map {
-              _ => new Status(LENGTH_REQUIRED)
-            }
-          }
-      }.getOrElse {
+      requestHeader.contentType.fold {
         val request = FCGIResponderRequest(
-                                            requestHeader.method,
-                                            "/" + scriptName,
-                                            "/" + uri,
-                                            requestHeader.rawQueryString,
-                                            documentRoot.map(new File(_)).getOrElse(settings.documentRoot),
-                                            requestHeader.headers.toMap,
-                                            additionalEnv,
-                                            None
-                                          )
+          requestHeader.method,
+          "/" + scriptName,
+          "/" + uri,
+          requestHeader.rawQueryString,
+          documentRoot.fold(settings.documentRoot)(new File(_)),
+          requestHeader.headers.toMap,
+          additionalEnv,
+          None
+        )
         val resultFuture = requestActor ? request
 
         Iteratee.ignore[Array[Byte]].mapM {
           _ => mapResultFuture(resultFuture)
         }
+      } {
+        contentType =>
+          requestHeader.headers.get("content-length").fold[Iteratee[Array[Byte], SimpleResult]] {
+            Iteratee.ignore[Array[Byte]].map {
+              _ => new Status(LENGTH_REQUIRED)
+            }
+          } {
+            contentLength =>
+              val requestContentStream = new AttachablePMSubscriber[ByteString]
+              val requestContent = FCGIRequestContent(contentType, contentLength.toLong, requestContentStream)
+              val request = FCGIResponderRequest(
+                requestHeader.method,
+                "/" + scriptName,
+                "/" + uri,
+                requestHeader.rawQueryString,
+                documentRoot.fold(settings.documentRoot)(new File(_)),
+                requestHeader.headers.toMap,
+                additionalEnv,
+                Some(requestContent)
+              )
+              val resultFuture = requestActor ? request
+
+              IterateeAdapter.adapt(Framing.byteArrayToByteString |> requestContentStream).mapM {
+                _ => mapResultFuture(resultFuture)
+              }
+          }
       }
   }
 
