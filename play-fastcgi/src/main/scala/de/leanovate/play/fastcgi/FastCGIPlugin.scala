@@ -39,7 +39,7 @@ class FastCGIPlugin(app: Application) extends Plugin {
           .fold(new Timeout(1.minute))(Timeout.apply),
         suspendTimeout = app.configuration.getMilliseconds("fastcgi.suspendTimeout").fold(20.seconds)
           (FiniteDuration.apply(_, TimeUnit.MILLISECONDS)),
-        maxConnections = app.configuration.getInt("fastcgi.maxConnections").getOrElse(50),
+        maxConnections = app.configuration.getInt("fastcgi.maxConnections").getOrElse(10),
         host = app.configuration.getString("fastcgi.host").getOrElse("localhost"),
         port = app.configuration.getInt("fastcgi.port").getOrElse(9001),
         fileWhiteList = app.configuration.getStringList("fastcgi.assets.whitelist")

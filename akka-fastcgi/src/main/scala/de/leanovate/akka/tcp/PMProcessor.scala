@@ -90,6 +90,20 @@ object PMProcessor {
     }
   }
 
+  def onEof[T](onEof: () => Unit) = new PMProcessor[T, T] {
+    override def |>(target: PMSubscriber[T]) = new PMSubscriber[T] {
+      override def onSubscribe(subscription: Subscription) = target.onSubscribe(subscription)
+
+      override def onNext(chunk: Chunk[T]) = chunk match {
+        case EOF =>
+          onEof()
+          target.onNext(EOF)
+        case _ =>
+          target.onNext(chunk)
+      }
+    }
+  }
+
   class ConcatProcessor[From, Mid, To](in: PMProcessor[From, Mid], out: PMProcessor[Mid, To])
     extends PMProcessor[From, To] {
     override def |>(target: PMSubscriber[To]) = in |> (out |> target)

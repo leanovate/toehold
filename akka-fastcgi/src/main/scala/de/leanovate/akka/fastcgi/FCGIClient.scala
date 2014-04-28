@@ -1,25 +1,42 @@
 package de.leanovate.akka.fastcgi
 
-import akka.actor.{ActorLogging, ActorRef, Props, Actor}
+import akka.actor._
 import java.net.InetSocketAddress
 import akka.io.Tcp._
 import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
-import de.leanovate.akka.tcp.{TcpConnectedState, AttachablePMSubscriber, PMProcessor}
+import de.leanovate.akka.tcp._
 import akka.util.ByteString
 import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor}
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Deadline, Duration, FiniteDuration}
 import de.leanovate.akka.fastcgi.request.{FCGIResponderSuccess, FCGIResponderError, FCGIRequest}
 import de.leanovate.akka.pool.PoolSupport
+import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
+import de.leanovate.akka.fastcgi.request.FCGIResponderError
+import akka.io.Tcp.Connected
+import akka.io.Tcp.Connect
+import akka.io.Tcp.CommandFailed
+import scala.Some
+import de.leanovate.akka.fastcgi.request.FCGIResponderSuccess
+import de.leanovate.akka.fastcgi.request.FCGIResponderError
+import akka.io.Tcp.Connected
+import akka.io.Tcp.Connect
+import akka.io.Tcp.CommandFailed
+import scala.Some
+import de.leanovate.akka.tcp.AttachablePMSubscriber
 
 class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration)
   extends Actor with ActorLogging {
 
   import context.system
 
+  var idCount = 1
+
   var currentRequest: Option[(FCGIRequest, ActorRef)] = None
 
   var connectedState: Option[TcpConnectedState] = None
+
+  var idleDeadline: Deadline = _
 
   def receive = disconnected
 
@@ -43,6 +60,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       if (log.isDebugEnabled) {
         log.debug(s"Connected $localAddress -> $remoteAddress")
       }
+      sender ! Register(self)
       val inStream = new AttachablePMSubscriber[ByteString]
       val httpExtractor = new HeaderExtractor({
         (statusCode, statusLine, headers) =>
@@ -51,16 +69,59 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       val pipeline =
         Framing.bytesToFCGIRecords |>
           Framing.filterStdOut(stderrToLog) |>
-          PMProcessor.flatMapChunk(httpExtractor) |> inStream
+          PMProcessor.flatMapChunk(httpExtractor) |>
+          PMProcessor.onEof[ByteString](becomeIdle) |> inStream
 
       val state = new TcpConnectedState(sender, remoteAddress, localAddress,
-        pipeline, becomeDisconnecting, becomeDisconnected, closeOnEof = false, inactivityTimeout, suspendTimeout, log)
+        pipeline, becomeDisconnecting, becomeDisconnected, closeOnOutEof = false, inactivityTimeout, suspendTimeout, log)
       connectedState = Some(state)
 
-      currentRequest.foreach(_._1.writeTo(1, keepAlive = false, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> state.outStream))
+      currentRequest.foreach(_._1.writeTo(idCount, keepAlive = true, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> state.outStream))
+      idCount += 1
 
       context.parent ! PoolSupport.IamBusy
       context become state.receive
+
+  }
+
+  def idle: Actor.Receive = {
+    case request: FCGIRequest =>
+      if (log.isDebugEnabled) {
+        log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + " reuse connection")
+      }
+      currentRequest = Some(request, sender)
+      val inStream = new AttachablePMSubscriber[ByteString]
+      val httpExtractor = new HeaderExtractor({
+        (statusCode, statusLine, headers) =>
+          currentRequest.foreach(_._2 ! FCGIResponderSuccess(statusCode, statusLine, headers, inStream))
+      })
+      val pipeline =
+        Framing.bytesToFCGIRecords |>
+          Framing.filterStdOut(stderrToLog) |>
+          PMProcessor.flatMapChunk(httpExtractor) |>
+          PMProcessor.onEof[ByteString](becomeIdle) |> inStream
+
+      connectedState.get.reconnect(pipeline)
+
+      currentRequest.foreach(_._1.writeTo(idCount, keepAlive = true, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> connectedState.get.outStream))
+      idCount += 1
+
+      context.parent ! PoolSupport.IamBusy
+      context become connectedState.get.receive
+
+    case TickSupport.Tick =>
+      if (idleDeadline.isOverdue()) {
+        if (log.isDebugEnabled)
+          log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + s" idle connection has been idle >= $suspendTimeout")
+        connectedState.foreach(_.abort())
+      }
+      connectedState.foreach(_.scheduleTick())
+
+    case c: ConnectionClosed =>
+      if (log.isDebugEnabled) {
+        log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + s" idle connection closed: $c")
+      }
+      becomeDisconnected()
   }
 
   def disconnecting: Actor.Receive = {
@@ -68,7 +129,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       currentRequest = Some(request, sender)
     case c: ConnectionClosed =>
       if (log.isDebugEnabled) {
-        log.debug(s"connection closed: $c")
+        log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + s" connection closed: $c")
       }
       if (currentRequest.isDefined) {
         IO(Tcp) ! Connect(remote)
@@ -78,12 +139,23 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       }
   }
 
+  def becomeIdle() {
+
+    currentRequest = None
+    connectedState.get.connection ! Tcp.ResumeReading
+    idleDeadline = Deadline.now + suspendTimeout
+    context.parent ! PoolSupport.IamIdle
+    context become idle
+  }
+
   def becomeDisconnecting() {
+    connectedState.foreach(_.deactivate())
     connectedState = None
     context become disconnecting
   }
 
   def becomeDisconnected() {
+    connectedState.foreach(_.deactivate())
     connectedState = None
     context.parent ! PoolSupport.IamFree
     context become disconnected

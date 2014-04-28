@@ -25,13 +25,13 @@ import akka.io.Tcp.{Register, ConnectionClosed, Received}
  * The main difference between client and server is how the connection is established and what should happen on
  * a disconnect.
  */
-class TcpConnectedState(connection: ActorRef,
-                        remoteAddress: InetSocketAddress,
-                        localAddress: InetSocketAddress,
-                        inStream: PMSubscriber[ByteString],
+class TcpConnectedState(val connection: ActorRef,
+                        val remoteAddress: InetSocketAddress,
+                        val localAddress: InetSocketAddress,
+                        var inStream: PMSubscriber[ByteString],
                         onClosing: () => Unit,
                         onDisconnect: () => Unit,
-                        closeOnEof: Boolean,
+                        closeOnOutEof: Boolean,
                         inactivityTimeout: FiniteDuration,
                         suspendTimeout: FiniteDuration,
                         log: LoggingAdapter)(implicit self: ActorRef, context: ActorContext) {
@@ -46,7 +46,7 @@ class TcpConnectedState(connection: ActorRef,
 
   private val writeDeadline = Ref[Option[Deadline]](None)
 
-  private val outPMSubscriber = new OutPMSubscriber
+  private var outPMSubscriber = new OutPMSubscriber
 
   inStream.onSubscribe(new ConnectionSubscription)
 
@@ -55,6 +55,12 @@ class TcpConnectedState(connection: ActorRef,
   scheduleTick()
 
   def outStream: PMSubscriber[ByteString] = outPMSubscriber
+
+  def reconnect(_inStream: PMSubscriber[ByteString]) {
+    inStream = _inStream
+    outPMSubscriber = new OutPMSubscriber
+    inStream.onSubscribe(new ConnectionSubscription)
+  }
 
   def receive: Actor.Receive = {
 
@@ -113,7 +119,12 @@ class TcpConnectedState(connection: ActorRef,
     onClosing()
   }
 
-  private def scheduleTick() {
+  def deactivate() {
+    tickGenerator.foreach(_.cancel())
+    tickGenerator = None
+  }
+
+  def scheduleTick() {
 
     tickGenerator.foreach(_.cancel())
     tickGenerator = Some(context.system.scheduler
@@ -160,7 +171,7 @@ class TcpConnectedState(connection: ActorRef,
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
               connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
-            case EOF if closeOnEof =>
+            case EOF if closeOnOutEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
               }
@@ -193,7 +204,7 @@ class TcpConnectedState(connection: ActorRef,
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
               connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
-            case EOF if closeOnEof =>
+            case EOF if closeOnOutEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
               }
@@ -206,4 +217,5 @@ class TcpConnectedState(connection: ActorRef,
       }
     }
   }
+
 }
