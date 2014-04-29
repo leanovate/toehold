@@ -77,7 +77,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
 
       becomeConnected()
 
-    case TickSupport.Tick =>
+    case TcpConnectedState.Tick =>
       if (idleDeadline.isOverdue()) {
         if (log.isDebugEnabled)
           log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + s" idle connection has been idle >= $suspendTimeout")

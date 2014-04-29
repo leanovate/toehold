@@ -17,7 +17,7 @@ import akka.event.LoggingAdapter
 import scala.concurrent.stm.Ref
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import akka.io.Tcp.{Register, ConnectionClosed, Received}
+import akka.io.Tcp.{Event, Register, ConnectionClosed, Received}
 
 /**
  * Common code shared by tcp client and server actors that are in a connected state.
@@ -76,7 +76,7 @@ class TcpConnectedState(val connection: ActorRef,
 
       inStream.onNext(PMSubscriber.Data(data))
 
-    case TcpConnectedSupport.WriteAck =>
+    case TcpConnectedState.WriteAck =>
       if (log.isDebugEnabled) {
         log.debug(s"$localAddress -> $remoteAddress inner write ack")
       }
@@ -85,7 +85,7 @@ class TcpConnectedState(val connection: ActorRef,
 
       outPMSubscriber.acknowledge()
 
-    case TickSupport.Tick =>
+    case TcpConnectedState.Tick =>
       if (readDeadline.single.get.exists(_.isOverdue())) {
         log.error(s"$localAddress -> $remoteAddress timed out in suspend reading for >= $suspendTimeout")
         abort()
@@ -128,7 +128,7 @@ class TcpConnectedState(val connection: ActorRef,
 
     tickGenerator.foreach(_.cancel())
     tickGenerator = Some(context.system.scheduler
-      .scheduleOnce(tickTime, self, TickSupport.Tick)(context.dispatcher))
+      .scheduleOnce(tickTime, self, TcpConnectedState.Tick)(context.dispatcher))
   }
 
   private class ConnectionSubscription extends Subscription {
@@ -170,7 +170,7 @@ class TcpConnectedState(val connection: ActorRef,
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
-              connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnOutEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -203,7 +203,7 @@ class TcpConnectedState(val connection: ActorRef,
               }
               inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
               writeDeadline.single.set(Some(Deadline.now + suspendTimeout))
-              connection ! Tcp.Write(data, TcpConnectedSupport.WriteAck)
+              connection ! Tcp.Write(data, TcpConnectedState.WriteAck)
             case EOF if closeOnOutEof =>
               if (log.isDebugEnabled) {
                 log.debug(s"$localAddress -> $remoteAddress closing connection")
@@ -217,5 +217,10 @@ class TcpConnectedState(val connection: ActorRef,
       }
     }
   }
+}
 
+object TcpConnectedState {
+  private[tcp] case object WriteAck extends Event
+
+  case object Tick
 }

@@ -67,5 +67,22 @@ class PMProcessorSpec extends Specification with ShouldMatchers with Mockito {
       out.eof should beFalse
       out.result() shouldEqual Seq(0, 1, 0, 1, 2, 0, 1, 2, 3, 0)
     }
+
+    "should be able to add onEof callback" in {
+      val out = new CollectingPMSubscriber[String]
+      val callback = mock[() => Unit]
+      val onEofPipe = PMProcessor.onEof(callback) |> out
+
+      onEofPipe.push("1", "2", "3")
+
+      out.eof should beFalse
+      out.result() shouldEqual Seq("1", "2", "3")
+      there was no(callback).apply()
+
+      onEofPipe.onNext(EOF)
+
+      out.eof should beTrue
+      there was one(callback).apply()
+    }
   }
 }

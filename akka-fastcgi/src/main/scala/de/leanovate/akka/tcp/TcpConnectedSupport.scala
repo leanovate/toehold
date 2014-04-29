@@ -24,7 +24,7 @@ import akka.io.Tcp.Received
  *
  * All the back-pressure handling happens here.
  */
-trait TcpConnectedSupport extends TickSupport with ActorLogging {
+trait TcpConnectedSupport extends ActorLogging {
   actor: Actor =>
 
   def inactivityTimeout: FiniteDuration
@@ -61,8 +61,3 @@ trait TcpConnectedSupport extends TickSupport with ActorLogging {
   }
 }
 
-object TcpConnectedSupport {
-
-  private[tcp] case object WriteAck extends Event
-
-}

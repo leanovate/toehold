@@ -14,11 +14,9 @@ import de.leanovate.akka.testutil.CollectingPMSubscriber
 import scala.collection.mutable
 import akka.io.Tcp
 import de.leanovate.akka.tcp.PMSubscriber.{EOF, Data, Subscription}
-import de.leanovate.akka.tcp.TcpConnectedSupport.WriteAck
 import org.specs2.mutable.{Specification, After}
 import org.specs2.matcher.ShouldMatchers
 import org.specs2.mock.Mockito
-import scala.concurrent.duration.Duration
 import scala.concurrent.duration.SECONDS
 import com.typesafe.config.ConfigFactory
 import scala.concurrent.duration._
@@ -58,10 +56,10 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       outStream.onSubscribe(subscription)
       outStream.onNext(Data(ByteString("something out")))
 
-      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedSupport.WriteAck
+      mockActor ! TcpConnectedState.WriteAck
 
       there was one(subscription).requestMore()
     }
@@ -74,19 +72,19 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       outStream.onSubscribe(subscription)
       outStream.onNext(Data(ByteString("something out")))
 
-      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
       there was noCallsTo(subscription)
 
       outStream.onNext(Data(ByteString("some more out")))
       assertTcpMessages()
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedSupport.WriteAck
+      mockActor ! TcpConnectedState.WriteAck
 
-      assertTcpMessages(Tcp.Write(ByteString("some more out"), WriteAck))
+      assertTcpMessages(Tcp.Write(ByteString("some more out"), TcpConnectedState.WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedSupport.WriteAck
+      mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
       there was one(subscription).requestMore()
@@ -114,10 +112,10 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       outStream.onNext(Data(ByteString("something out")))
       outStream.onNext(EOF)
 
-      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedSupport.WriteAck
+      mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages(Tcp.Close)
       there was noCallsTo(subscription)
@@ -132,10 +130,10 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       outStream.onNext(Data(ByteString("something out")))
       outStream.onNext(EOF)
 
-      assertTcpMessages(Tcp.Write(ByteString("something out"), WriteAck))
+      assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
       there was noCallsTo(subscription)
 
-      mockActor ! TcpConnectedSupport.WriteAck
+      mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
       there was noCallsTo(subscription)
