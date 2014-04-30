@@ -12,7 +12,7 @@ import de.leanovate.akka.fastcgi.request._
 import akka.util.ByteString
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.iteratee.Iteratee
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import akka.pattern.ask
 import de.leanovate.play.tcp.{IterateeAdapter, EnumeratorAdapter}
 import de.leanovate.akka.fastcgi.framing.Framing
@@ -25,7 +25,7 @@ import scala.Some
 import de.leanovate.akka.tcp.AttachablePMSubscriber
 import play.api.mvc.SimpleResult
 import play.api.mvc.ResponseHeader
-import play.api.libs.json.{Json, JsNumber, JsObject}
+import play.api.libs.json.{Json, JsNumber}
 
 trait FastCGIController extends Controller {
   def serveFromUri(path: String, extension: String = "", documentRoot: Option[String] = None): EssentialAction =
@@ -95,10 +95,10 @@ trait FastCGIController extends Controller {
   protected def mapResultFuture(resultFuture: Future[Any]): Future[SimpleResult] = {
 
     resultFuture.map {
-      case FCGIResponderSuccess(statusCode, statusLine, headers, content) =>
+      case FCGIResponderSuccess(statusCode, statusLine, headers, content, _) =>
         val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
         SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
-      case FCGIResponderError(msg) =>
+      case FCGIResponderError(msg, _) =>
         InternalServerError(msg)
     }
   }

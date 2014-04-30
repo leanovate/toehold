@@ -9,10 +9,12 @@ package de.leanovate.akka.fastcgi.request
 import akka.util.ByteString
 import de.leanovate.akka.tcp.AttachablePMSubscriber
 
-sealed trait FCGIResponderResponse
+sealed trait FCGIResponderResponse {
+  def ref: Any
+}
 
 case class FCGIResponderSuccess(statusCode: Int, statusLine: String, headers: Seq[(String, String)],
-  content: AttachablePMSubscriber[ByteString])
+                                content: AttachablePMSubscriber[ByteString], ref: Any)
   extends FCGIResponderResponse
 
-case class FCGIResponderError(msg: String) extends FCGIResponderResponse
+case class FCGIResponderError(msg: String, ref: Any) extends FCGIResponderResponse

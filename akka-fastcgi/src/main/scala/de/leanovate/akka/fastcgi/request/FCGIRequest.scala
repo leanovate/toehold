@@ -4,5 +4,7 @@ import de.leanovate.akka.tcp.PMSubscriber
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 
 trait FCGIRequest {
-  def writeTo(id: Int, keepAlive:Boolean, out: PMSubscriber[FCGIRecord])
+  def ref: Any
+
+  def writeTo(id: Int, keepAlive: Boolean, out: PMSubscriber[FCGIRecord])
 }

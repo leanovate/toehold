@@ -23,10 +23,11 @@ case class FCGIResponderRequest(
                                  documentRoot: File,
                                  headers: Map[String, Seq[String]],
                                  additionalEnv: Seq[(String, String)],
-                                 optContent: Option[FCGIRequestContent]
+                                 optContent: Option[FCGIRequestContent],
+                                 ref: Any = null
                                  ) extends FCGIRequest {
 
-  override def writeTo(id: Int, keepAlive:Boolean, out: PMSubscriber[FCGIRecord]) {
+  override def writeTo(id: Int, keepAlive: Boolean, out: PMSubscriber[FCGIRecord]) {
 
     val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive)
     val params = FCGIParams(id, (

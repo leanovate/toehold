@@ -47,7 +47,10 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       if (log.isDebugEnabled) {
         log.debug(s"Connect failed: $c")
       }
-      currentRequest.foreach(_._2 ! FCGIResponderError(s"Connection to FastCGI process $remote failed"))
+      currentRequest.foreach {
+        case (request, target) =>
+          target ! FCGIResponderError(s"Connection to FastCGI process $remote failed", request.ref)
+      }
       becomeDisconnected()
 
     case c@Connected(remoteAddress, localAddress) =>
@@ -119,7 +122,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
   def becomeConnected() {
     currentRequest.foreach(_._1.writeTo(idCount, keepAlive = true, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> connectedState.get.outStream))
     idCount += 1
-    if(idCount > 30000)
+    if (idCount > 30000)
       idCount = 1
 
     context.parent ! PoolSupport.IamBusy
@@ -143,7 +146,10 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
     val inStream = new AttachablePMSubscriber[ByteString]
     val httpExtractor = new HeaderExtractor({
       (statusCode, statusLine, headers) =>
-        currentRequest.foreach(_._2 ! FCGIResponderSuccess(statusCode, statusLine, headers, inStream))
+        currentRequest.foreach {
+          case (request, target) =>
+            target ! FCGIResponderSuccess(statusCode, statusLine, headers, inStream, request.ref)
+        }
     })
     Framing.bytesToFCGIRecords |>
       Framing.filterStdOut(stderrToLog) |>
