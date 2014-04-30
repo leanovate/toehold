@@ -7,14 +7,12 @@ import spray.can.Http
 import de.leanovate.spray.fastcgi.FastCGISupport
 
 class Handler extends Actor with FastCGISupport {
-  override def receive = {
+  override def receive = primary.orElse(fastcgiReceive)
+
+  def primary: Actor.Receive = {
 
     case _: Http.Connected =>
       sender ! Http.Register(self)
-      context become connected.orElse(fastcgiReceive)
-  }
-
-  def connected: Actor.Receive = {
 
     case HttpRequest(GET, Uri.Path("/ping"), _, _, _) =>
       sender ! HttpResponse(entity = "PONG")

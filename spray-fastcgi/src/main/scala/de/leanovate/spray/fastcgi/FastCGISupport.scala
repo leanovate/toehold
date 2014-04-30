@@ -13,37 +13,41 @@ import akka.io.Tcp.ConnectionClosed
 
 trait FastCGISupport {
   actor: Actor =>
-  private val extension = context.system.extension(FastCGIExtension)
+  private val extension = FastCGIExtension(context.system)
   private val openRequests = mutable.Map.empty[ActorRef, ConnectionState]
 
   def fastcgiReceive: Actor.Receive = {
     case HttpRequest(method, uri, headers, HttpEntity.Empty, _) =>
       openRequests.put(context.sender, ConnectionState(None))
-      val scriptName = scriptNameFromUri(uri)
+      val scriptPath = scriptPathFromUri(uri)
       val request = FCGIResponderRequest(
         method.value,
-        "/" + scriptName,
-        "/" + uri.path,
-        uri.query.value,
+        scriptPath,
+        uri.path.toString(),
+        uri.query.toString(),
         extension.settings.documentRoot,
         mapHeaders(headers),
         additionalEnv,
         None,
-        ref = context.sender
+        ref = sender
       )
 
+      println("S: " + sender)
+      println("Send " + request)
       extension.requestActor ! request
 
     case FCGIResponderSuccess(statusCode, statusLine, headers, content, connection: ActorRef) =>
+      println("Res: " + connection)
       connection ! HttpResponse(status = StatusCodes.getForKey(statusCode).getOrElse {
         StatusCodes.registerCustom(statusCode, statusLine, statusLine)
       }, headers = mapHeaders(headers)).chunkedMessageStart
 
-      val httpOut = new HttpOutPMSubscriber(sender)
+      val httpOut = new HttpOutPMSubscriber(connection)
       content.subscribe(httpOut)
-      openRequests.put(sender, ConnectionState(Some(httpOut)))
+      openRequests.put(connection, ConnectionState(Some(httpOut)))
 
     case FCGIResponderError(msg, connection: ActorRef) =>
+      println("Res2: " + connection)
       connection ! HttpResponse(status = StatusCodes.InternalServerError, entity = msg)
 
     case HttpOutPMSubscriber.WriteAck =>
@@ -53,8 +57,8 @@ trait FastCGISupport {
       openRequests.remove(sender)
   }
 
-  def scriptNameFromUri(uri: Uri): String = {
-    extension.settings.documentRoot.getCanonicalPath + uri.path
+  def scriptPathFromUri(uri: Uri): String = {
+    uri.path.toString()
   }
 
   def mapHeaders(headers: Seq[(String, String)]): List[HttpHeader] = {

@@ -6,7 +6,7 @@ import scala.concurrent.duration.FiniteDuration
 
 case class FastCGISettings(
                             documentRoot: File,
-                            requestTimeout: Timeout,
+                            requestTimeout: FiniteDuration,
                             suspendTimeout: FiniteDuration,
                             maxConnections: Int,
                             host: String,

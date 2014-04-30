@@ -14,7 +14,7 @@ class FastCGIExtension(system: ExtendedActorSystem) extends Extension {
   val settings =
     FastCGISettings(
       documentRoot = new File(system.settings.config.getString("fastcgi.documentRoot")),
-      requestTimeout = Timeout(system.settings.config.getMilliseconds("fastcgi.requestTimeout")),
+      requestTimeout = FiniteDuration(system.settings.config.getMilliseconds("fastcgi.requestTimeout"), TimeUnit.MILLISECONDS),
       suspendTimeout = FiniteDuration(system.settings.config.getMilliseconds("fastcgi.suspendTimeout"), TimeUnit.MILLISECONDS),
       maxConnections = system.settings.config.getInt("fastcgi.maxConnections"),
       host = system.settings.config.getString("fastcgi.host"),
@@ -24,9 +24,8 @@ class FastCGIExtension(system: ExtendedActorSystem) extends Extension {
 
   val requestActor =
     system.actorOf(
-      FCGIRequestActor
-        .props(settings.host, settings.port,
-          settings.requestTimeout.duration, settings.suspendTimeout, settings.maxConnections),
+      FCGIRequestActor.props(settings.host, settings.port,
+        settings.requestTimeout, settings.suspendTimeout, settings.maxConnections),
       FASTCGI_ACTOR_NAME)
 }
 
