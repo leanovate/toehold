@@ -11,11 +11,12 @@ import scala.collection.mutable
 import de.leanovate.spray.tcp.HttpOutPMSubscriber
 import akka.io.Tcp.ConnectionClosed
 
-class FastCGIHandler()(implicit self: Actor, context: ActorContext) {
+trait FastCGISupport {
+  actor: Actor =>
   private val extension = context.system.extension(FastCGIExtension)
   private val openRequests = mutable.Map.empty[ActorRef, ConnectionState]
 
-  def receive: Actor.Receive = {
+  def fastcgiReceive: Actor.Receive = {
     case HttpRequest(method, uri, headers, HttpEntity.Empty, _) =>
       openRequests.put(context.sender, ConnectionState(None))
       val scriptName = scriptNameFromUri(uri)
@@ -38,18 +39,18 @@ class FastCGIHandler()(implicit self: Actor, context: ActorContext) {
         StatusCodes.registerCustom(statusCode, statusLine, statusLine)
       }, headers = mapHeaders(headers)).chunkedMessageStart
 
-      val httpOut = new HttpOutPMSubscriber(context.sender)
+      val httpOut = new HttpOutPMSubscriber(sender)
       content.subscribe(httpOut)
-      openRequests.put(context.sender, ConnectionState(Some(httpOut)))
+      openRequests.put(sender, ConnectionState(Some(httpOut)))
 
     case FCGIResponderError(msg, connection: ActorRef) =>
       connection ! HttpResponse(status = StatusCodes.InternalServerError, entity = msg)
 
     case HttpOutPMSubscriber.WriteAck =>
-      openRequests.get(context.sender).foreach(_.httpOut.foreach(_.ackknowledge()))
+      openRequests.get(sender).foreach(_.httpOut.foreach(_.ackknowledge()))
 
     case _: ConnectionClosed =>
-      openRequests.remove(context.sender)
+      openRequests.remove(sender)
   }
 
   def scriptNameFromUri(uri: Uri): String = {
