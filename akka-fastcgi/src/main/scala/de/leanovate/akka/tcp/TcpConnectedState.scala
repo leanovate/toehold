@@ -150,7 +150,7 @@ class TcpConnectedState(val connection: ActorRef,
   }
 
   private class OutPMSubscriber extends PMSubscriber[ByteString] {
-    private val writeBuffer = new WriteBuffer(remoteAddress, localAddress, log)
+    private val writeBuffer = new WriteBuffer(s"$localAddress -> $remoteAddress", log)
 
     private var subscription: Subscription = NoSubscription
 

@@ -1,6 +1,6 @@
 package de.leanovate.spray.fastcgi
 
-import akka.actor.{ActorContext, ActorRef, Actor}
+import akka.actor.{ActorRef, Actor}
 import spray.http._
 import de.leanovate.akka.fastcgi.request._
 import spray.http.HttpRequest
@@ -8,17 +8,14 @@ import spray.http.HttpResponse
 import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import scala.collection.mutable
-import de.leanovate.spray.tcp.HttpOutPMSubscriber
-import akka.io.Tcp.ConnectionClosed
+import de.leanovate.spray.tcp.HttpOutStreamActor
 
 trait FastCGISupport {
   actor: Actor =>
   private val extension = FastCGIExtension(context.system)
-  private val openRequests = mutable.Map.empty[ActorRef, ConnectionState]
 
   def fastcgiReceive: Actor.Receive = {
     case HttpRequest(method, uri, headers, HttpEntity.Empty, _) =>
-      openRequests.put(context.sender, ConnectionState(None))
       val scriptPath = scriptPathFromUri(uri)
       val request = FCGIResponderRequest(
         method.value,
@@ -42,19 +39,11 @@ trait FastCGISupport {
         StatusCodes.registerCustom(statusCode, statusLine, statusLine)
       }, headers = mapHeaders(headers)).chunkedMessageStart
 
-      val httpOut = new HttpOutPMSubscriber(connection)
-      content.subscribe(httpOut)
-      openRequests.put(connection, ConnectionState(Some(httpOut)))
+      context.actorOf(HttpOutStreamActor.props(content, connection))
 
     case FCGIResponderError(msg, connection: ActorRef) =>
       println("Res2: " + connection)
       connection ! HttpResponse(status = StatusCodes.InternalServerError, entity = msg)
-
-    case HttpOutPMSubscriber.WriteAck =>
-      openRequests.get(sender).foreach(_.httpOut.foreach(_.ackknowledge()))
-
-    case _: ConnectionClosed =>
-      openRequests.remove(sender)
   }
 
   def scriptPathFromUri(uri: Uri): String = {
@@ -89,7 +78,4 @@ trait FastCGISupport {
   }
 
   def additionalEnv: Seq[(String, String)] = Seq.empty
-
-  case class ConnectionState(httpOut: Option[HttpOutPMSubscriber])
-
 }

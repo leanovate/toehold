@@ -9,7 +9,7 @@ scalaVersion := "2.10.4"
 scalacOptions ++= Seq("-feature", "-deprecation")
 
 libraryDependencies ++= Seq(
-  "de.leanovate.toehold" %% "play-fastcgi" % "0.1.9-SNAPSHOT"
+  "de.leanovate.toehold" %% "play-fastcgi" % "0.2.1-SNAPSHOT"
 )
 
 play.Project.playScalaSettings

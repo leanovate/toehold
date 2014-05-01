@@ -8,12 +8,12 @@ package de.leanovate.akka.fastcgi.request
 
 import akka.util.ByteString
 import scala.concurrent.ExecutionContext
-import de.leanovate.akka.tcp.AttachablePMSubscriber
+import de.leanovate.akka.tcp.{PMPublisher, AttachablePMSubscriber}
 
 case class FCGIRequestContent(
   mimeType: String,
   length: Long,
-  stream: AttachablePMSubscriber[ByteString]
+  stream: PMPublisher[ByteString]
   )
 
 object FCGIRequestContent {

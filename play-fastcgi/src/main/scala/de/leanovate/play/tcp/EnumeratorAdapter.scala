@@ -9,13 +9,12 @@ package de.leanovate.play.tcp
 import play.api.libs.iteratee._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import de.leanovate.akka.tcp.PMSubscriber._
-import de.leanovate.akka.tcp.PMSubscriber
+import de.leanovate.akka.tcp.{PMPublisher, PMSubscriber}
 import de.leanovate.akka.tcp.PMSubscriber.Data
-import de.leanovate.akka.tcp.AttachablePMSubscriber
 import java.util.concurrent.atomic.AtomicInteger
 
 object EnumeratorAdapter {
-  def adapt[A](attachable: AttachablePMSubscriber[A])(implicit ctx: ExecutionContext): Enumerator[A] = new
+  def adapt[A](attachable: PMPublisher[A])(implicit ctx: ExecutionContext): Enumerator[A] = new
       Enumerator[A] {
     private val resultIteratee = Promise[Iteratee[A, _]]()
 

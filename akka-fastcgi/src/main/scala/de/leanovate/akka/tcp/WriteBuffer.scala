@@ -4,9 +4,8 @@ import de.leanovate.akka.tcp.PMSubscriber.{Data, Chunk}
 import akka.util.ByteString
 import scala.concurrent.stm.Ref
 import akka.event.LoggingAdapter
-import java.net.InetSocketAddress
 
-class WriteBuffer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress, log: LoggingAdapter) {
+class WriteBuffer(logTag:String, log: LoggingAdapter) {
   private val buffer = Ref[Option[Seq[Chunk[ByteString]]]](None)
 
   def appendChunk(chunk: Chunk[ByteString]): Option[Seq[Chunk[ByteString]]] =
@@ -20,7 +19,7 @@ class WriteBuffer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddr
     state match {
       case Some(chunks) =>
         if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress push chunk to buffer")
+          log.debug(s"$logTag push chunk to buffer")
         }
         (chunks, chunk) match {
           case (Seq(Data(remain)), Data(next)) =>
@@ -30,7 +29,7 @@ class WriteBuffer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddr
         }
       case None =>
         if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress push control to buffer")
+          log.debug(s"$logTag push control to buffer")
         }
         Some(Seq.empty)
     }
@@ -40,19 +39,18 @@ class WriteBuffer(remoteAddress: InetSocketAddress, localAddress: InetSocketAddr
     state match {
       case Some(chunks) if chunks.isEmpty =>
         if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress take last control from buffer")
+          log.debug(s"$logTag take last control from buffer")
         }
         None
       case Some(chunks) =>
         if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress take chunk from buffer")
+          log.debug(s"$logTag take chunk from buffer")
         }
         Some(chunks.drop(1))
       case None =>
         if (log.isDebugEnabled) {
-          log.debug(s"$localAddress -> $remoteAddress buffer empty")
+          log.debug(s"$logTag buffer empty")
         }
         None
     }
-
 }

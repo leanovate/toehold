@@ -57,7 +57,7 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
     }
   }
 
-  def abort(msg: String) {
+  override def abort(msg: String) {
 
     synchronized {
       if (target ne null) {
