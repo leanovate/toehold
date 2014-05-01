@@ -80,5 +80,4 @@ object HttpOutStreamActor {
   case object ChunkAck
 
   case object EofAck
-
 }
