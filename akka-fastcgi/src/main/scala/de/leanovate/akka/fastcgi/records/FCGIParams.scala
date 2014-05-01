@@ -8,12 +8,12 @@ package de.leanovate.akka.fastcgi.records
 
 import akka.util.ByteString
 
-case class FCGIParams(id: Int, envVars: Seq[(ByteString, ByteString)]) extends FCGIRecord {
+case class FCGIParams(id: Int, envVars: Seq[(String, String)]) extends FCGIRecord {
   override def typeId = FCGIConstants.FCGI_PARAMS
 
   override def content = envVars.foldLeft(ByteString.empty) {
     (data, envVar) =>
-      data ++ encodeEnvVar(envVar._1, envVar._2)
+      data ++ encodeEnvVar(ByteString(envVar._1), ByteString(envVar._2))
   }
 
   private def encodeEnvVar(name: ByteString, value: ByteString): ByteString = {

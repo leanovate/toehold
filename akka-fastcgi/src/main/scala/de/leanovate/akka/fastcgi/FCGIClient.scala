@@ -120,7 +120,8 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
   }
 
   def becomeConnected() {
-    currentRequest.foreach(_._1.writeTo(idCount, keepAlive = true, PMProcessor.map[FCGIRecord, ByteString](_.encode) |> connectedState.get.outStream))
+    currentRequest.foreach(_._1.writeTo(idCount, keepAlive = true,
+      PMProcessor.map[FCGIRecord, ByteString](_.encode) |> connectedState.get.outStream))
     idCount += 1
     if (idCount > 30000)
       idCount = 1

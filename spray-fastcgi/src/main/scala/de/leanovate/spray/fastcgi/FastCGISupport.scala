@@ -17,6 +17,7 @@ import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import scala.Some
 import spray.http.HttpEntity.NonEmpty
 import spray.http.HttpResponse
+import spray.http.HttpHeaders.{`If-None-Match`, ETag, `Last-Modified`, `If-Modified-Since`}
 
 trait FastCGISupport {
   actor: Actor =>
@@ -40,11 +41,24 @@ trait FastCGISupport {
             ref = sender
           )
 
-          println("S: " + sender)
-          println("Send " + request)
           extension.requestActor ! request
         case Some(Right(file)) if file.exists() && file.canRead =>
-          sender ! HttpResponse(entity = HttpData(file))
+          val notModified = headers.exists {
+            case `If-None-Match`(tags) =>
+              val etag = calcEtag(file)
+              EntityTag.matchesRange(EntityTag(etag), tags, weak = false)
+            case `If-Modified-Since`(date) =>
+              date >= DateTime(file.lastModified())
+            case _ => false
+          }
+          if (notModified) {
+            sender ! HttpResponse(status = StatusCodes.NotModified)
+          } else {
+            sender ! HttpResponse(
+              headers = ETag(calcEtag(file)) :: `Last-Modified`(DateTime(file.lastModified())) :: Nil,
+              entity = HttpData(file)
+            )
+          }
         case _ =>
           sender ! HttpResponse(status = StatusCodes.NotFound)
       }
@@ -64,15 +78,12 @@ trait FastCGISupport {
             ref = sender
           )
 
-          println("S2: " + sender)
-          println("Send2 " + request)
           extension.requestActor ! request
         case _ =>
           sender ! HttpResponse(status = StatusCodes.NotFound)
       }
 
     case FCGIResponderSuccess(statusCode, statusLine, headers, content, connection: ActorRef) =>
-      println("Res: " + connection)
       connection ! HttpResponse(status = StatusCodes.getForKey(statusCode).getOrElse {
         StatusCodes.registerCustom(statusCode, statusLine, statusLine)
       }, headers = mapHeaders(headers)).chunkedMessageStart
@@ -80,7 +91,6 @@ trait FastCGISupport {
       context.actorOf(HttpOutStreamActor.props(content, connection))
 
     case FCGIResponderError(msg, connection: ActorRef) =>
-      println("Res2: " + connection)
       connection ! HttpResponse(status = StatusCodes.InternalServerError, entity = msg)
   }
 
@@ -110,16 +120,8 @@ trait FastCGISupport {
 
   def mapHeaders(headers: Seq[(String, String)]): List[HttpHeader] = {
     headers.map {
-      case (_name, _value) =>
-        new HttpHeader() {
-          override def name = _name
-
-          override def value = _value
-
-          override def lowercaseName = _name.toLowerCase
-
-          override def render[R <: Rendering](r: R): r.type = r ~~ _name ~~ ':' ~~ ' '
-        }
+      case (name, value) =>
+        FastCGIHeader(name, value)
     }.toList
   }
 
@@ -143,7 +145,7 @@ trait FastCGISupport {
         Some(FCGIRequestContent(
           contentType.toString(),
           data.length,
-          new StreamPMPublisher[ByteString](Stream(data.toByteString))))
+          new StreamPMPublisher[ByteString](data.toChunkStream(8192L).map(_.toByteString))))
     }
   }
 
@@ -156,4 +158,25 @@ trait FastCGISupport {
     else
       None
   }
+
+  def calcEtag(file: File): String = {
+    import java.security.MessageDigest
+    val digest = MessageDigest.getInstance("SHA-1")
+    digest.reset()
+    digest.update(file.getName.getBytes("UTF-8"))
+    digest.update(file.lastModified().toString.getBytes("UTF-8"))
+    digest.update(file.length().toString.getBytes("UTF-8"))
+    digest.digest().map(0xFF & _).map {
+      "%02x".format(_)
+    }.foldLeft("") {
+      _ + _
+    }
+  }
+
+  case class FastCGIHeader(name: String, value: String) extends HttpHeader {
+    val lowercaseName = name.toLowerCase
+
+    def render[R <: Rendering](r: R): r.type = r ~~ name ~~ ':' ~~ ' ' ~~ value
+  }
+
 }

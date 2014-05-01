@@ -30,7 +30,7 @@ case class FCGIResponderRequest(
   override def writeTo(id: Int, keepAlive: Boolean, out: PMSubscriber[FCGIRecord]) {
 
     val beginRquest = FCGIBeginRequest(id, FCGIRoles.FCGI_AUTHORIZER, keepAlive)
-    val params = FCGIParams(id, (
+    val params = FCGIParams(id,
       Seq(
         "SCRIPT_FILENAME" -> (documentRoot.getCanonicalPath + scriptName),
         "QUERY_STRING" -> query,
@@ -54,7 +54,7 @@ case class FCGIResponderRequest(
             "HTTP_" + name.toUpperCase.replace('-', '_') -> value.mkString(",")
         }.toSeq ++
         additionalEnv
-      ).map(e => ByteString(e._1) -> ByteString(e._2)))
+    )
 
     out.push(beginRquest, params, FCGIParams(id, Seq.empty))
     optContent.fold(out.push(FCGIStdin(id, ByteString.empty))) {
