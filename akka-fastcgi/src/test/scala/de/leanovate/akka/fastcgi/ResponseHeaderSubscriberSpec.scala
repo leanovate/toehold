@@ -25,7 +25,7 @@ class ResponseHeaderSubscriberSpec extends Specification with ShouldMatchers {
       responseHeaderSubscriber.push(ByteString("\r\n12345"))
       statusCode should beSome(400)
       statusLine should beSome("Badbad")
-      headers should beSome(Seq("Content-Type" -> "text/plain"))
+      headers should beSome(===(Seq("Content-Type" -> "text/plain")))
       out.eof should beFalse
 
       responseHeaderSubscriber.onNext(EOF)
@@ -43,7 +43,7 @@ class ResponseHeaderSubscriberSpec extends Specification with ShouldMatchers {
 
       statusCode should beSome(400)
       statusLine should beSome("Badbad")
-      headers should beSome(Seq("Content-Type" -> "text/plain"))
+      headers should beSome(===(Seq("Content-Type" -> "text/plain")))
       out.eof should beTrue
       out.result() should beEmpty
     }
@@ -55,7 +55,7 @@ class ResponseHeaderSubscriberSpec extends Specification with ShouldMatchers {
 
       statusCode should beSome(404)
       statusLine should beSome("Notfound")
-      headers should beSome(Seq("Content-Type" -> "text/plain", "ETag" -> "1234567", "Last-Modified" -> "7654"))
+      headers should beSome(===(Seq("Content-Type" -> "text/plain", "ETag" -> "1234567", "Last-Modified" -> "7654")))
       out.eof should beTrue
       out.result() shouldEqual Seq(ByteString("987654321"))
     }
@@ -65,7 +65,7 @@ class ResponseHeaderSubscriberSpec extends Specification with ShouldMatchers {
 
       statusCode should beSome(500)
       statusLine should beSome("OK")
-      headers should beSome(Seq("Content-Type" -> "text/plain"))
+      headers should beSome(===(Seq("Content-Type" -> "text/plain")))
       out.eof should beFalse
       out.result() should beEmpty
     }
