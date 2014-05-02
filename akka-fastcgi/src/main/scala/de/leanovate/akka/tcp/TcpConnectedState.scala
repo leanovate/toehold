@@ -53,7 +53,6 @@ class TcpConnectedState(val connection: ActorRef,
   private var outPMSubscriber = new OutPMSubscriber
 
   connection ! Register(self)
-  connection ! SuspendReading
 
   inStream.onSubscribe(new ConnectionSubscription)
 
@@ -75,9 +74,6 @@ class TcpConnectedState(val connection: ActorRef,
       }
       inactivityDeadline.single.set(Deadline.now + inactivityTimeout)
       readDeadline.single.set(Some(Deadline.now + suspendTimeout))
-      // Unluckily there is a lot of suspend/resume ping-pong, depending on the underlying buffers, sendChunk
-      // might actually be called before the resume. This will become much cleaner with akka 2.3 in pull-mode
-      connection ! Tcp.SuspendReading
 
       inStream.onNext(PMSubscriber.Data(data))
 

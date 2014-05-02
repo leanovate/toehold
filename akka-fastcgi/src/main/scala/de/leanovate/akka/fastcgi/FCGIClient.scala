@@ -36,8 +36,8 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
 
   def disconnected: Actor.Receive = {
     case request: FCGIRequest =>
-      currentRequest = Some(request, sender)
-      IO(Tcp) ! Connect(remote)
+      currentRequest = Some(request, sender())
+      IO(Tcp) ! Connect(remote, pullMode = true)
       context become connecting
   }
 
@@ -60,7 +60,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
 
       val pipeline = createPipeline()
 
-      val state = new TcpConnectedState(sender, remoteAddress, localAddress,
+      val state = new TcpConnectedState(sender(), remoteAddress, localAddress,
         pipeline, becomeDisconnecting, becomeDisconnected, closeOnOutEof = false, inactivityTimeout, suspendTimeout, log)
       connectedState = Some(state)
 
@@ -72,7 +72,7 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
       if (log.isDebugEnabled) {
         log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + " reuse connection")
       }
-      currentRequest = Some(request, sender)
+      currentRequest = Some(request, sender())
 
       val pipeline = createPipeline()
 
@@ -97,13 +97,13 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
 
   def disconnecting: Actor.Receive = {
     case request: FCGIRequest =>
-      currentRequest = Some(request, sender)
+      currentRequest = Some(request, sender())
     case c: ConnectionClosed =>
       if (log.isDebugEnabled) {
         log.debug(connectedState.fold("")(state => state.localAddress + " -> " + state.remoteAddress) + s" connection closed: $c")
       }
       if (currentRequest.isDefined) {
-        IO(Tcp) ! Connect(remote)
+        IO(Tcp) ! Connect(remote, pullMode = true)
         context become connecting
       } else {
         becomeDisconnected()
