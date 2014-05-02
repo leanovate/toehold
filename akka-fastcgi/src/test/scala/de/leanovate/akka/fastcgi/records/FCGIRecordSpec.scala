@@ -31,6 +31,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
         case noMatch =>
           failure("$noMatch is unexpected")
       }
+      true
     }
 
     "decode end request record" in {
@@ -43,6 +44,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
         case noMatch =>
           failure("$noMatch is unexpected")
       }
+      true
     }
 
     "decode begin request record" in {
@@ -57,6 +59,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
         case noMatch =>
           failure("$noMatch is unexpected")
       }
+      true
     }
   }
 }

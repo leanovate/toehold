@@ -18,6 +18,7 @@ object Common {
     xerial.sbt.Sonatype.sonatypeSettings ++
       com.typesafe.sbt.SbtPgp.settings ++
       sbtrelease.ReleasePlugin.releaseSettings ++
+      net.virtualvoid.sbt.graph.Plugin.graphSettings ++
       Seq(
            organization := "de.leanovate.toehold",
 
