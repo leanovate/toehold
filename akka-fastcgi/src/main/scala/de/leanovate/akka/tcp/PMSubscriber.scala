@@ -28,7 +28,7 @@ trait PMSubscriber[A] {
    * For invokers:
    * a) Ensure that this is called before everything else
    * b) Avoid re-calling `onNext` before consumer has given its ok via `subscription.resume()`
-  * For implementors:
+   * For implementors:
    * a) Never ever do a blocking operation here.
    */
   def onSubscribe(subscription: Subscription)
@@ -100,7 +100,7 @@ object PMSubscriber {
   /**
    * Little helper to create a /dev/null sink.
    */
-  def nullStream[A] = new PMSubscriber[A] {
+  def nullStream[A]: PMSubscriber[A] = new PMSubscriber[A] {
     private var subscription: Subscription = NoSubscription
 
     override def onSubscribe(_subscription: Subscription) {
