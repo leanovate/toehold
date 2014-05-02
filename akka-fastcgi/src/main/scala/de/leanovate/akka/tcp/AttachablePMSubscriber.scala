@@ -22,7 +22,6 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
   private var subscription: Subscription = NoSubscription
 
   override def onSubscribe(_subscription: Subscription) {
-
     synchronized {
       subscription = _subscription
       if (target ne null) {
@@ -32,7 +31,6 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
   }
 
   override def onNext(chunk: Chunk[A]) {
-
     if (target ne null) {
       target.onNext(chunk)
     } else {
@@ -48,7 +46,6 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
   }
 
   override def subscribe(_target: PMSubscriber[A]) {
-
     synchronized {
       _target.onSubscribe(subscription)
       chunks.result().foreach(_target.onNext)
@@ -58,7 +55,6 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
   }
 
   override def abort(msg: String) {
-
     synchronized {
       if (target ne null) {
         target.onNext(EOF)
@@ -67,5 +63,4 @@ case class AttachablePMSubscriber[A]() extends PMSubscriber[A] with PMPublisher[
       }
     }
   }
-
 }

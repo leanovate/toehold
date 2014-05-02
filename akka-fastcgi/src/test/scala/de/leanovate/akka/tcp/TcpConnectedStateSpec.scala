@@ -54,14 +54,15 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       val subscription = mock[Subscription]
 
       outStream.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       outStream.onNext(Data(ByteString("something out")))
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       mockActor ! TcpConnectedState.WriteAck
 
-      there was one(subscription).requestMore()
+      there was two(subscription).requestMore()
     }
 
     "buffer all output between Write and WriteAck" in new ConnectedMockActor {
@@ -70,24 +71,25 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       val subscription = mock[Subscription]
 
       outStream.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       outStream.onNext(Data(ByteString("something out")))
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       outStream.onNext(Data(ByteString("some more out")))
       assertTcpMessages()
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages(Tcp.Write(ByteString("some more out"), TcpConnectedState.WriteAck))
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
-      there was one(subscription).requestMore()
+      there was two(subscription).requestMore()
     }
 
     "close connection immediately if buffer is empty and closeOfRef is true" in new ConnectedMockActor {
@@ -97,10 +99,11 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       val subscription = mock[Subscription]
 
       outStream.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Close)
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
     }
 
     "close connection if closeOnEof is true and EOF is send to outstream" in new ConnectedMockActor {
@@ -109,16 +112,17 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       val subscription = mock[Subscription]
 
       outStream.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       outStream.onNext(Data(ByteString("something out")))
       outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages(Tcp.Close)
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
     }
 
     "not close connection if closeOnEof is false and EOF is send to outstream" in new ConnectedMockActor {
@@ -127,16 +131,17 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
       val subscription = mock[Subscription]
 
       outStream.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       outStream.onNext(Data(ByteString("something out")))
       outStream.onNext(EOF)
 
       assertTcpMessages(Tcp.Write(ByteString("something out"), TcpConnectedState.WriteAck))
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
 
       mockActor ! TcpConnectedState.WriteAck
 
       assertTcpMessages()
-      there was noCallsTo(subscription)
+      there was one(subscription).requestMore()
     }
 
     "eof the in stream and kill itself if connection closes for some reason" in new ConnectedMockActor {
@@ -177,7 +182,7 @@ class TcpConnectedStateSpec extends Specification with ShouldMatchers with Mocki
 
     val outStream = sender.receiveOne(Duration(1, SECONDS)).asInstanceOf[PMSubscriber[ByteString]]
 
-    assertTcpMessages(Tcp.Register(mockActor))
+    assertTcpMessages(Tcp.Register(mockActor), Tcp.SuspendReading, Tcp.ResumeReading)
 
     def assertTcpMessages(msgs: Any*) = {
 

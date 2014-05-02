@@ -7,7 +7,7 @@ import akka.io.{Tcp, IO}
 import de.leanovate.akka.fastcgi.records.FCGIRecord
 import de.leanovate.akka.tcp._
 import akka.util.ByteString
-import de.leanovate.akka.fastcgi.framing.{Framing, HeaderExtractor}
+import de.leanovate.akka.fastcgi.framing.Framing
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 import de.leanovate.akka.fastcgi.request.FCGIRequest
 import de.leanovate.akka.pool.PoolSupport
@@ -144,18 +144,20 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
   }
 
   def createPipeline() = {
-    val inStream = new AttachablePMSubscriber[ByteString]
-    val httpExtractor = new HeaderExtractor({
-      (statusCode, statusLine, headers) =>
-        currentRequest.foreach {
+    val responseHeaderSubscriber = new ResponseHeaderSubscriber {
+      override def onHeader(statusCode: Int, statusLine: String, headers: Seq[(String, String)]) = {
+        currentRequest.fold(PMSubscriber.nullStream[ByteString]) {
           case (request, target) =>
+            val inStream = new AttachablePMSubscriber[ByteString]
             target ! FCGIResponderSuccess(statusCode, statusLine, headers, inStream, request.ref)
+            inStream
         }
-    })
+      }
+    }
     Framing.bytesToFCGIRecords |>
       Framing.filterStdOut(stderrToLog) |>
-      PMProcessor.flatMapChunk(httpExtractor) |>
-      PMProcessor.onEof[ByteString](becomeIdle) |> inStream
+      PMProcessor.onEof[ByteString](becomeIdle) |>
+      responseHeaderSubscriber
   }
 
   private def stderrToLog(stderr: ByteString) {
