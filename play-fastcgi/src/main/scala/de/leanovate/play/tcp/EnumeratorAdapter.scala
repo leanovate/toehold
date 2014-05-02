@@ -27,8 +27,8 @@ object EnumeratorAdapter {
       private val queueSize = new AtomicInteger(0)
 
       override def onSubscribe(_subscription: Subscription) {
-
         subscription = _subscription
+        subscription.requestMore()
       }
 
       override def onNext(chunk: Chunk[A]) {

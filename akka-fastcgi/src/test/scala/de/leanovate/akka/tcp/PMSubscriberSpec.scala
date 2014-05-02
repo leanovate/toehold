@@ -26,12 +26,10 @@ class PMSubscriberSpec extends Specification with ShouldMatchers with Mockito {
 
   class NullPMSubscriber extends PMSubscriber[String] {
     override def onSubscribe(subscription: Subscription) {
-
     }
 
     override def onNext(chunk: Chunk[String]) {
     }
   }
-
 }
 

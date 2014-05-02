@@ -28,6 +28,7 @@ abstract class ResponseHeaderSubscriber extends PMSubscriber[ByteString] {
 
   override def onSubscribe(_subscription: Subscription) {
     subscription = _subscription
+    subscription.requestMore()
   }
 
   override def onNext(chunk: Chunk[ByteString]) = state(chunk)
@@ -60,7 +61,8 @@ abstract class ResponseHeaderSubscriber extends PMSubscriber[ByteString] {
             parseLine(line)
           }
         }
-        subscription.requestMore()
+        if (!done)
+          subscription.requestMore()
       case EOF =>
         val bodySubscriber = onHeader(extractedStatusCode, extractedStatusLine, extractedHeaders.result())
         bodySubscriber.onSubscribe(subscription)

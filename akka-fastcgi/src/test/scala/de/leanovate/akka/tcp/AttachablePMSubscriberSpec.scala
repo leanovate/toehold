@@ -27,9 +27,10 @@ class AttachablePMSubscriberSpec extends Specification with ShouldMatchers with 
       val out = new CollectingPMSubscriber[String]
 
       attachable.subscribe(out)
+      there was one(subscription).requestMore()
       out.markResume()
 
-      there was one(subscription).requestMore()
+      there was two(subscription).requestMore()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")
@@ -43,12 +44,13 @@ class AttachablePMSubscriberSpec extends Specification with ShouldMatchers with 
       attachable.subscribe(out)
 
       attachable.onSubscribe(subscription)
+      there was one(subscription).requestMore()
       attachable.onNext(Data("1"))
       attachable.onNext(Data("2"))
       attachable.onNext(Data("3"))
       out.markResume()
 
-      there was one(subscription).requestMore()
+      there was two(subscription).requestMore()
 
       out.eof should beFalse
       out.result() shouldEqual Seq("1", "2", "3")

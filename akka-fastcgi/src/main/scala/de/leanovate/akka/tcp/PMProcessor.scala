@@ -21,7 +21,6 @@ object PMProcessor {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
-
         subscription = _subscription
         target.onSubscribe(subscription)
       }
@@ -48,7 +47,6 @@ object PMProcessor {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
-
         subscription = _subscription
         target.onSubscribe(subscription)
       }
@@ -68,7 +66,6 @@ object PMProcessor {
       private var subscription: Subscription = NoSubscription
 
       override def onSubscribe(_subscription: Subscription) {
-
         subscription = _subscription
         target.onSubscribe(subscription)
       }

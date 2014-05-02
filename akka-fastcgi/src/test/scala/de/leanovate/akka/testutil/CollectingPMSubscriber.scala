@@ -18,8 +18,8 @@ class CollectingPMSubscriber[A] extends PMSubscriber[A] {
   private var subscription: Subscription = NoSubscription
 
   override def onSubscribe(_subscription: Subscription) {
-
     subscription = _subscription
+    subscription.requestMore()
   }
 
   override def onNext(chunk: Chunk[A]) {
@@ -42,7 +42,6 @@ class CollectingPMSubscriber[A] extends PMSubscriber[A] {
   }
 
   def markResume() {
-
     subscription.requestMore()
   }
 

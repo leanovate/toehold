@@ -17,7 +17,11 @@ import akka.event.LoggingAdapter
 import scala.concurrent.stm.Ref
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import akka.io.Tcp.{Event, Register, ConnectionClosed, Received}
+import akka.io.Tcp._
+import akka.io.Tcp.Register
+import de.leanovate.akka.tcp.PMSubscriber.Data
+import scala.Some
+import akka.io.Tcp.Received
 
 /**
  * Common code shared by tcp client and server actors that are in a connected state.
@@ -48,9 +52,10 @@ class TcpConnectedState(val connection: ActorRef,
 
   private var outPMSubscriber = new OutPMSubscriber
 
-  inStream.onSubscribe(new ConnectionSubscription)
-
   connection ! Register(self)
+  connection ! SuspendReading
+
+  inStream.onSubscribe(new ConnectionSubscription)
 
   scheduleTick()
 
@@ -133,7 +138,6 @@ class TcpConnectedState(val connection: ActorRef,
 
   private class ConnectionSubscription extends Subscription {
     override def requestMore() {
-
       if (log.isDebugEnabled) {
         log.debug(s"$localAddress -> $remoteAddress resume reading")
       }
@@ -155,8 +159,8 @@ class TcpConnectedState(val connection: ActorRef,
     private var subscription: Subscription = NoSubscription
 
     override def onSubscribe(_subscription: Subscription) {
-
       subscription = _subscription
+      subscription.requestMore()
     }
 
     override def onNext(chunk: Chunk[ByteString]) {

@@ -60,6 +60,7 @@ class HttpOutStreamActor(publisher: PMPublisher[ByteString], responder: ActorRef
 
   override def onSubscribe(_subscription: Subscription) {
     subscription = _subscription
+    subscription.requestMore()
   }
 
   override def onNext(chunk: Chunk[ByteString]) {

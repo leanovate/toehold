@@ -105,6 +105,7 @@ object PMSubscriber {
 
     override def onSubscribe(_subscription: Subscription) {
       subscription = _subscription
+      subscription.requestMore()
     }
 
     override def onNext(chunk: Chunk[A]) {
