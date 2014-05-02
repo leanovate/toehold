@@ -5,8 +5,8 @@ logLevel := Level.Info
 resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
 
 // Use the Play sbt plugin for Play projects
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.2")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3-M1")
 
 addSbtPlugin("com.github.sdb" % "xsbt-filter" % "0.4")
 
-addSbtPlugin( "de.leanovate.toehold" %% "php-fpm-sbt-plugin" % "0.2.1-SNAPSHOT")
+addSbtPlugin( "de.leanovate.toehold" %% "php-fpm-sbt-plugin" % "0.3.1-SNAPSHOT")
