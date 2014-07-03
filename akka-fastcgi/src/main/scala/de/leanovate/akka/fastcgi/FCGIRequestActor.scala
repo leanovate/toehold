@@ -46,7 +46,7 @@ class FCGIRequestActor(host: String, port: Int, inactivityTimeout: FiniteDuratio
 
   override def createPoolable() = {
 
-    val client = context.actorOf(FCGIClient.props(host, port, inactivityTimeout, suspendTimeout), s"FCGIClient$count")
+    val client = context.actorOf(KeepAliveFCGIClient.props(host, port, inactivityTimeout, suspendTimeout), s"FCGIClient$count")
     if (log.isDebugEnabled) {
       log.debug(s"Create FCGIClient $client")
     }

@@ -19,7 +19,7 @@ import akka.io.Tcp.CommandFailed
 import scala.Some
 import de.leanovate.akka.tcp.AttachablePMSubscriber
 
-class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration)
+class KeepAliveFCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuration, val suspendTimeout: FiniteDuration)
   extends Actor with ActorLogging {
 
   import context.system
@@ -166,10 +166,10 @@ class FCGIClient(remote: InetSocketAddress, val inactivityTimeout: FiniteDuratio
   }
 }
 
-object FCGIClient {
+object KeepAliveFCGIClient {
   def props(hostname: String, port: Int, inactivityTimeout: FiniteDuration, idleTimeout: FiniteDuration) =
-    Props(classOf[FCGIClient], new InetSocketAddress(hostname, port), inactivityTimeout, idleTimeout)
+    Props(classOf[KeepAliveFCGIClient], new InetSocketAddress(hostname, port), inactivityTimeout, idleTimeout)
 
   def props(remote: InetSocketAddress, inactivityTimeout: FiniteDuration, idleTimeout: FiniteDuration) =
-    Props(classOf[FCGIClient], remote, inactivityTimeout, idleTimeout)
+    Props(classOf[KeepAliveFCGIClient], remote, inactivityTimeout, idleTimeout)
 }

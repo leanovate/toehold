@@ -10,10 +10,10 @@ import akka.util.ByteString
 import de.leanovate.akka.fastcgi.records._
 import de.leanovate.akka.fastcgi.records.FCGIParams
 import de.leanovate.akka.fastcgi.records.FCGIBeginRequest
-import scala.concurrent.ExecutionContext
 import de.leanovate.akka.tcp.PMSubscriber
 import de.leanovate.akka.fastcgi.framing.Framing
 import java.io.File
+import java.net.InetSocketAddress
 
 case class FCGIResponderRequest(
                                  method: String,
@@ -24,8 +24,9 @@ case class FCGIResponderRequest(
                                  headers: Map[String, Seq[String]],
                                  additionalEnv: Seq[(String, String)],
                                  optContent: Option[FCGIRequestContent],
-                                 ref: Any = null
-                                 ) extends FCGIRequest {
+                                 ref: Any = null,
+                                 remote: InetSocketAddress = null
+                                 ) extends FCGIRequestWithRemote {
 
   override def writeTo(id: Int, keepAlive: Boolean, out: PMSubscriber[FCGIRecord]) {
 
