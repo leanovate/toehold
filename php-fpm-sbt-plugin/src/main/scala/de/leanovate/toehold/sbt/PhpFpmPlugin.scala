@@ -4,8 +4,7 @@ import sbt._
 import sbt.Keys._
 import sbtfilter.Plugin.Filter
 import play.PlayRunHook
-import play.Project._
-import scala.Some
+import play.PlayImport.PlayKeys.playRunHooks
 
 object PhpFpmPlugin extends Plugin {
   val phpFpmExecutables = SettingKey[Seq[String]]("php-fpm-executables")

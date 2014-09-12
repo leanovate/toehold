@@ -3,7 +3,7 @@ name := "integration-gatling"
 
 organization := "de.leanovate.toehold"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.2"
 
 scalacOptions ++= Seq("-feature", "-deprecation")
 

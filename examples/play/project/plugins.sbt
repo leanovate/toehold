@@ -5,7 +5,7 @@ logLevel := Level.Info
 resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
 
 // Use the Play sbt plugin for Play projects
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.2")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.4")
 
 addSbtPlugin("com.github.sdb" % "xsbt-filter" % "0.4")
 

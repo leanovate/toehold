@@ -18,7 +18,7 @@ class ZeroTerminatedStringExtractorSpec extends Specification with ShouldMatcher
       val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.zeroTerminatedString |> out
 
-      pipe.push(ByteString("Hello\0World\0Nothing"))
+      pipe.push(ByteString("Hello\u0000World\u0000Nothing"))
       pipe.onNext(EOF)
 
       out.eof should beTrue
@@ -29,7 +29,7 @@ class ZeroTerminatedStringExtractorSpec extends Specification with ShouldMatcher
       val out = new CollectingPMSubscriber[ByteString]
       val pipe = Framing.zeroTerminatedString |> out
 
-      pipe.push(ByteString("Hel"), ByteString("lo\0World\0Not"), ByteString("hing\0"), ByteString("Last"))
+      pipe.push(ByteString("Hel"), ByteString("lo\u0000World\u0000Not"), ByteString("hing\u0000"), ByteString("Last"))
       pipe.onNext(EOF)
 
       out.eof should beTrue

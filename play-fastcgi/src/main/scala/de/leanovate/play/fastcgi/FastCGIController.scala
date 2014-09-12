@@ -53,7 +53,7 @@ trait FastCGIController extends Controller {
         }
       } {
         contentType =>
-          requestHeader.headers.get("content-length").fold[Iteratee[Array[Byte], SimpleResult]] {
+          requestHeader.headers.get("content-length").fold[Iteratee[Array[Byte], Result]] {
             Iteratee.ignore[Array[Byte]].map {
               _ => new Status(LENGTH_REQUIRED)
             }
@@ -92,12 +92,12 @@ trait FastCGIController extends Controller {
     }
   }
 
-  protected def mapResultFuture(resultFuture: Future[Any]): Future[SimpleResult] = {
+  protected def mapResultFuture(resultFuture: Future[Any]): Future[Result] = {
 
     resultFuture.map {
       case FCGIResponderSuccess(statusCode, statusLine, headers, content, _) =>
         val contentEnum = EnumeratorAdapter.adapt(content).map(_.toArray)
-        SimpleResult(ResponseHeader(statusCode, headers.toMap), contentEnum)
+        Result(ResponseHeader(statusCode, headers.toMap), contentEnum)
       case FCGIResponderError(msg, _) =>
         InternalServerError(msg)
     }
