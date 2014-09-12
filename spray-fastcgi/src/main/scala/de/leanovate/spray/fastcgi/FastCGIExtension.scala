@@ -6,6 +6,8 @@
 
 package de.leanovate.spray.fastcgi
 
+import java.util.concurrent.TimeUnit.MILLISECONDS
+
 import akka.actor.{ExtensionIdProvider, ExtensionId, Extension, ExtendedActorSystem}
 import java.io.File
 import akka.util.Timeout
@@ -20,8 +22,8 @@ class FastCGIExtension(system: ExtendedActorSystem) extends Extension {
   val settings =
     FastCGISettings(
       documentRoot = new File(system.settings.config.getString("fastcgi.documentRoot")),
-      requestTimeout = FiniteDuration(system.settings.config.getMilliseconds("fastcgi.requestTimeout"), TimeUnit.MILLISECONDS),
-      suspendTimeout = FiniteDuration(system.settings.config.getMilliseconds("fastcgi.suspendTimeout"), TimeUnit.MILLISECONDS),
+      requestTimeout = FiniteDuration(system.settings.config.getDuration("fastcgi.requestTimeout", MILLISECONDS), MILLISECONDS),
+      suspendTimeout = FiniteDuration(system.settings.config.getDuration("fastcgi.suspendTimeout", MILLISECONDS), MILLISECONDS),
       maxConnections = system.settings.config.getInt("fastcgi.maxConnections"),
       host = system.settings.config.getString("fastcgi.host"),
       port = system.settings.config.getInt("fastcgi.port"),

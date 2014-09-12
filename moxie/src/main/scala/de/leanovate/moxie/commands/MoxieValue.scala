@@ -29,7 +29,7 @@ object MoxieValue {
     override def reads(json: JsValue): JsResult[MoxieValue] = json match {
       case JsBoolean(value) => JsSuccess(MoxieBoolean(value))
       case JsNumber(value) if value.isValidLong => JsSuccess(MoxieInt(value.toLongExact))
-      case JsNumber(value) if value.isValidDouble => JsSuccess(MoxieFloat(value.toDouble))
+      case JsNumber(value) if value.isValidDouble => JsSuccess(MoxieFloat(value.toDouble)) // change to isDecimalDouble if the support for scala 2.10 is dropped
       case JsString(value) => JsSuccess(MoxieString(value))
       case _ => JsError(s"Unknown js type $json")
     }

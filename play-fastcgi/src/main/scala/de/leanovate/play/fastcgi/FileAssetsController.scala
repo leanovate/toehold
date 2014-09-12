@@ -6,7 +6,7 @@
 
 package de.leanovate.play.fastcgi
 
-import play.api.mvc.{SimpleResult, RequestHeader, Action, Controller}
+import play.api.mvc._
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.joda.time.DateTimeZone
 import java.io.File
@@ -54,7 +54,7 @@ trait FileAssetsController extends Controller {
       }
   }
 
-  protected def maybeNotModified(request: RequestHeader, file: File): Option[SimpleResult] = {
+  protected def maybeNotModified(request: RequestHeader, file: File): Option[Result] = {
 
     request.headers.get(IF_NONE_MATCH) match {
       case Some(etags) =>

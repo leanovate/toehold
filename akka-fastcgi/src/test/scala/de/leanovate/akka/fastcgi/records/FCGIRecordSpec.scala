@@ -9,9 +9,13 @@ package de.leanovate.akka.fastcgi.records
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.specs2.mutable.Specification
-import org.specs2.matcher.ShouldMatchers
+import org.specs2.matcher.{MatchResult, ShouldMatchers}
+import org.specs2.execute._
 
 class FCGIRecordSpec extends Specification with ShouldMatchers {
+  implicit def matchResultListAsResult[T]: AsResult[List[MatchResult[T]]] = new AsResult[List[MatchResult[T]]] {
+    def asResult(t: =>List[MatchResult[T]]): Result = t.foldLeft(StandardResults.success: Result)(_ and _.toResult)
+  }
 
   "FCGIRequest.decode" should {
     "decode stdout record" in {
@@ -29,7 +33,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
                                                                  |Hello World""".stripMargin
           Hex.encodeHexString(remain.toArray) shouldEqual "01030001000800000000000000696162"
         case noMatch =>
-          failure("$noMatch is unexpected")
+          ko("$noMatch is unexpected")
       }
     }
 
@@ -41,7 +45,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
           id shouldEqual 1
           remain.isEmpty should beTrue
         case noMatch =>
-          failure("$noMatch is unexpected")
+          ko("$noMatch is unexpected")
       }
     }
 
@@ -55,7 +59,7 @@ class FCGIRecordSpec extends Specification with ShouldMatchers {
           keepAlive should beTrue
           remain should beEmpty
         case noMatch =>
-          failure("$noMatch is unexpected")
+          ko("$noMatch is unexpected")
       }
     }
   }
