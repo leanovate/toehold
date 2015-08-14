@@ -8,9 +8,9 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 
 libraryDependencies ++= Seq(
-  "de.leanovate.toehold" %% "play-fastcgi" % "0.2.1-SNAPSHOT"
-)     
+  "de.leanovate.toehold" %% "play-fastcgi" % "0.2.2"
+)
 
-play.Project.playScalaSettings
+// play.Project.playScalaSettings
 
 de.leanovate.toehold.sbt.PhpFpmPlugin.phpFpmSettings
