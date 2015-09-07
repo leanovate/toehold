@@ -13,3 +13,5 @@ lazy val sprayFastCgi = project.in(file("spray-fastcgi")).dependsOn(akkaFastCgi)
 lazy val phpFpmSbtPlugin = project.in(file("php-fpm-sbt-plugin"))
 
 lazy val moxie = project.in(file("moxie")).settings(publishArtifact := false).dependsOn(akkaFastCgi)
+
+Common.settings
