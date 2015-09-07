@@ -3,8 +3,8 @@ package de.leanovate.toehold.sbt
 import sbt._
 import sbt.Keys._
 import sbtfilter.Plugin.Filter
-import play.PlayRunHook
-import play.PlayImport.PlayKeys.playRunHooks
+import play.sbt.PlayRunHook
+import play.sbt.PlayImport.PlayKeys.playRunHooks
 
 object PhpFpmPlugin extends Plugin {
   val phpFpmExecutables = SettingKey[Seq[String]]("php-fpm-executables")

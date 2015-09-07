@@ -23,7 +23,7 @@ import de.leanovate.akka.fastcgi.request.FCGIResponderRequest
 import de.leanovate.akka.fastcgi.request.FCGIResponderError
 import scala.Some
 import de.leanovate.akka.tcp.AttachablePMSubscriber
-import play.api.mvc.SimpleResult
+import play.api.mvc.Result
 import play.api.mvc.ResponseHeader
 import play.api.libs.json.{Json, JsNumber}
 
