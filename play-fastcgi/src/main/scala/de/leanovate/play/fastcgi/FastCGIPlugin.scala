@@ -6,20 +6,23 @@
 
 package de.leanovate.play.fastcgi
 
-import play.api.Plugin
-import play.api.Application
+import javax.inject.{Singleton, Inject}
+
+import play.api.{Configuration, Environment, Plugin, Application}
 import akka.actor.{PoisonPill, ActorRef}
+import play.api.inject.{Binding, ApplicationLifecycle, Module}
 import play.api.libs.concurrent.Akka
 import de.leanovate.akka.fastcgi.FCGIRequestActor
 import play.api.Play._
-import scala.Some
 import java.io.File
 import akka.util.Timeout
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.collection.JavaConversions._
 import java.util.concurrent.TimeUnit
 
-class FastCGIPlugin(app: Application) extends Plugin {
+@Singleton
+class FastCGIPlugin @Inject() (app: Application, lifecycle: ApplicationLifecycle) extends Module {
   val FASTCGI_ACTOR_NAME = "fastcgiRequest"
 
   private var _requestActor: Option[ActorRef] = None
@@ -30,7 +33,14 @@ class FastCGIPlugin(app: Application) extends Plugin {
 
   def settings: FastCGISettings = _settings.getOrElse(sys.error("FastCGI plugin not started"))
 
-  override def onStart() {
+  // start the actor
+  start()
+
+  private def start() {
+
+    lifecycle.addStopHook { () =>
+      Future.successful(stop())
+    }
 
     val confSettings =
       FastCGISettings(
@@ -53,7 +63,7 @@ class FastCGIPlugin(app: Application) extends Plugin {
         FASTCGI_ACTOR_NAME))
   }
 
-  override def onStop() {
+  private def stop() {
 
     _requestActor.foreach(_ ! PoisonPill)
     _requestActor = None
@@ -61,13 +71,16 @@ class FastCGIPlugin(app: Application) extends Plugin {
     _settings = None
   }
 
-  override def enabled = !app.configuration.getString("fastcgi.plugin").filter(_ == "disabled").isDefined
+  override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = {
+    Seq()
+  }
 }
 
-object FastCGIPlugin extends Plugin {
-  def requestActor(implicit app: Application): ActorRef =
-    app.plugin[FastCGIPlugin].map(_.requestActor).getOrElse(sys.error("FastCGI plugin not registered"))
+object FastCGIPlugin {
 
-  def settings(implicit app: Application): FastCGISettings =
-    app.plugin[FastCGIPlugin].map(_.settings).getOrElse(sys.error("FastCGI plugin not registered"))
+  private val instance = Application.instanceCache[FastCGIPlugin]
+
+  def requestActor(implicit app: Application): ActorRef = instance(app).requestActor
+
+  def settings(implicit app: Application): FastCGISettings = instance(app).settings
 }
