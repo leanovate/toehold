@@ -65,10 +65,7 @@ object Common {
     )
 
   def settings2_11 = settings ++ Seq(
-    scalaVersion := propOr("toehold.scalaVersion", "2.11.2")
-    // scalaBinaryVersion := "2.11"
-    //crossBuild := true,
-    //crossScalaVersions := Seq("2.10.4", "2.11.2")
+    scalaVersion := propOr("toehold.scalaVersion", "2.11.7")
   )
 
   /**
@@ -76,7 +73,6 @@ object Common {
    */
   def settings2_10 = settings ++ Seq(
     scalaVersion := "2.10.4"
-    // scalaBinaryVersion := "2.10"
   )
 
   def propOr(name: String, value: String): String =
