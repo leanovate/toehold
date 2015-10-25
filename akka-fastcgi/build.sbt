@@ -1,5 +1,3 @@
-import sbtrelease.ReleasePlugin.ReleaseKeys._
-import scoverage.ScoverageSbtPlugin
 
 name := "akka-fastcgi"
 
@@ -16,7 +14,3 @@ libraryDependencies ++= Seq(
                            )
 
 scalacOptions in Test ++= Seq("-Yrangepos")
-
-
-
-ScoverageSbtPlugin.instrumentSettings

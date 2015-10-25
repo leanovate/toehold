@@ -1,5 +1,3 @@
-import scoverage.ScoverageSbtPlugin
-
 name := "moxie"
 
 Common.settings2_11
@@ -12,5 +10,3 @@ libraryDependencies ++= Seq(
                              "org.hamcrest" % "hamcrest-core" % "1.3" % "test",
                              "org.mockito" % "mockito-core" % "1.9.5" % "test"
                            )
-
-ScoverageSbtPlugin.instrumentSettings

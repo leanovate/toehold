@@ -1,5 +1,3 @@
-import sbtrelease.ReleasePlugin.ReleaseKeys._
-import scoverage.ScoverageSbtPlugin
 
 name := "play-fastcgi"
 
@@ -12,5 +10,3 @@ libraryDependencies ++= Seq(
     "org.specs2" %% "specs2" % "2.4.2" % "test",
     "com.typesafe.play" %% "play-test" % "2.4.3" % "test"
 )
-
-ScoverageSbtPlugin.instrumentSettings

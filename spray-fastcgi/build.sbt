@@ -1,5 +1,3 @@
-import sbtrelease.ReleasePlugin.ReleaseKeys._
-import scoverage.ScoverageSbtPlugin
 
 name := "spray-fastcgi"
 
@@ -12,5 +10,3 @@ libraryDependencies ++= Seq(
   "io.spray" % "spray-routing" % "1.2.1",
   "org.specs2" %% "specs2" % "2.4.2" % "test"
 )
-
-ScoverageSbtPlugin.instrumentSettings

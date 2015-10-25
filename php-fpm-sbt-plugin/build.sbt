@@ -1,4 +1,3 @@
-import sbtrelease.ReleasePlugin.ReleaseKeys._
 
 sbtPlugin := true
 
