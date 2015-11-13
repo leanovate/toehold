@@ -1,6 +1,9 @@
 language: scala
 scala:
-   - "2.10.6"
+- 2.10.6
 jdk:
-   - oraclejdk8
+- oraclejdk8
 sudo: false
+notifications:
+  slack:
+    secure: S3axyOn0966krlFPHLMePeyJneZMAosboR4nbmM1VvtRK4+s9kBzAG4pslIp+RYorc8Hu9qz1VDrI5hsCgY2YhPc2vgG48lTaBf87s3Xg7q/WZrcVi9V7Nj9GCRv6AXKVht4JP+O/+EsQCs0OI5zwrLKBUhnxKvA0C6IjR9qxSM=
